@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>عقاري - إدارة الأملاك</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+<style> body { font-family: 'Tahoma', sans-serif; } </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+
+<!-- ============================================= -->
+
+<!-- ضع هنا بياناتك من Supabase (Project URL + Publishable key) -->
+
+<script>
+  const SUPABASE_URL = "https://hyyvqcppamlmlhcmnsut.supabase.co";
+  const SUPABASE_KEY = "sb_publishable_26WQJ1wSFyt3eNDdkj2yyw_RwYDK6yf";
+</script>
+
+<!-- ============================================= -->
+
+<div id="app" class="max-w-3xl mx-auto p-4"></div>
+
+<script>
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const app = document.getElementById('app');
+let currentUser = null;
+let currentTab = 'tenants';
+
+async function init() {
+  const { data: { session } } = await supabase.auth.getSession();
+  currentUser = session?.user || null;
+  render();
+}
+
+supabase.auth.onAuthStateChange((_event, session) => {
+  currentUser = session?.user || null;
+  render();
+});
+
+function render() {
+  if (!currentUser) { renderLogin(); } else { renderApp(); }
+}
+
+function renderLogin() {
+  app.innerHTML = `
+    <div class="flex items-center justify-center min-h-screen -mt-4">
+      <div class="bg-white p-8 rounded-2xl shadow-lg w-full max-w-sm">
+        <h1 class="text-2xl font-bold text-center mb-6">عقاري</h1>
+        <p class="text-center text-gray-500 mb-6">تسجيل الدخول</p>
+        <input id="email" type="email" placeholder="البريد الإلكتروني" class="w-full border rounded-lg px-3 py-2 mb-3" />
+        <input id="password" type="password" placeholder="كلمة السر" class="w-full border rounded-lg px-3 py-2 mb-4" />
+        <p id="error" class="text-red-600 text-sm mb-3 hidden"></p>
+        <button onclick="login()" class="w-full bg-blue-600 text-white rounded-lg py-2 font-bold hover:bg-blue-700">دخول</button>
+      </div>
+    </div>
+  `;
+}
+
+async function login() {
+  const email = document.getElementById('email').value.trim();
+  const password = document.getElementById('password').value;
+  const errorEl = document.getElementById('error');
+  const { error } = await supabase.auth.signInWithPassword({ email, password });
+  if (error) {
+    errorEl.textContent = 'بيانات الدخول غير صحيحة، أو الحساب غير موجود.';
+    errorEl.classList.remove('hidden');
+  }
+}
+
+async function logout() { await supabase.auth.signOut(); }
+
+function switchTab(tab) { currentTab = tab; renderApp(); }
+
+async function renderApp() {
+  app.innerHTML = `
+    <div class="flex items-center justify-between mb-4 pt-4">
+      <h1 class="text-xl font-bold">عقاري</h1>
+      <button onclick="logout()" class="text-sm text-gray-500 hover:text-red-600">تسجيل الخروج</button>
+    </div>
+    <div class="flex gap-2 mb-4 overflow-x-auto">
+      ${tabButton('tenants', 'المستأجرون')}
+      ${tabButton('units', 'الوحدات')}
+      ${tabButton('leases', 'العقود')}
+    </div>
+    <div id="tab_content"></div>
+  `;
+  if (currentTab === 'tenants') await renderTenantsTab();
+  if (currentTab === 'units') await renderUnitsTab();
+  if (currentTab === 'leases') await renderLeasesTab();
+}
+
+function tabButton(id, label) {
+  const active = currentTab === id;
+  return `<button onclick="switchTab('${id}')" class="px-4 py-2 rounded-lg whitespace-nowrap ${active ? 'bg-blue-600 text-white' : 'bg-white text-gray-600'}">${label}</button>`;
+}
+
+/* ---------------- المستأجرون ---------------- */
+let tenants = [];
+let tenantSearch = '';
+
+async function renderTenantsTab() {
+  const c = document.getElementById('tab_content');
+  c.innerHTML = `
+    <div class="bg-white rounded-xl shadow p-4 mb-4">
+      <h2 class="font-bold mb-3">إضافة مستأجر جديد</h2>
+      <div class="grid grid-cols-2 gap-3">
+        <input id="new_name" placeholder="الاسم الكامل *" class="border rounded-lg px-3 py-2 col-span-2" />
+        <input id="new_phone" placeholder="رقم الجوال *" class="border rounded-lg px-3 py-2" />
+        <input id="new_national_id" placeholder="رقم الهوية" class="border rounded-lg px-3 py-2" />
+      </div>
+      <p id="add_error" class="text-red-600 text-sm mt-2 hidden"></p>
+      <button onclick="addTenant()" class="mt-3 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">+ إضافة</button>
+    </div>
+    <input placeholder="ابحث بالاسم أو الجوال..." oninput="onTenantSearch(event)" class="w-full border rounded-lg px-3 py-2 mb-4" />
+    <div id="tenants_list" class="space-y-3"></div>
+  `;
+  await loadTenants();
+}
+
+async function loadTenants() {
+  let query = supabase.from('tenants').select('*').order('created_at', { ascending: false });
+  if (tenantSearch) query = query.or(`full_name.ilike.%${tenantSearch}%,phone.ilike.%${tenantSearch}%`);
+  const { data } = await query;
+  tenants = data || [];
+  renderTenantsList();
+}
+
+function onTenantSearch(e) { tenantSearch = e.target.value; loadTenants(); }
+
+function renderTenantsList() {
+  const list = document.getElementById('tenants_list');
+  if (!list) return;
+  if (tenants.length === 0) { list.innerHTML = `<p class="text-center text-gray-400 py-8">لا يوجد مستأجرون بعد</p>`; return; }
+  list.innerHTML = tenants.map(t => `
+    <div class="bg-white rounded-xl shadow p-4 flex items-center justify-between">
+      <div>
+        <p class="font-bold">${t.full_name}</p>
+        <p class="text-sm text-gray-500">${t.phone} ${t.national_id ? '· ' + t.national_id : ''}</p>
+      </div>
+      <div class="flex items-center gap-2">
+        <span class="px-2 py-1 rounded-full text-xs ${statusClass(t.status)}">${tenantStatusLabel(t.status)}</span>
+        ${t.status !== 'blacklisted'
+          ? `<button onclick="blacklistTenant('${t.id}')" class="text-xs text-red-600 border border-red-200 rounded-lg px-2 py-1 hover:bg-red-50">قائمة سوداء</button>`
+          : `<button onclick="reinstateTenant('${t.id}')" class="text-xs text-green-600 border border-green-200 rounded-lg px-2 py-1 hover:bg-green-50">إعادة تفعيل</button>`}
+      </div>
+    </div>
+  `).join('');
+}
+
+function statusClass(status) {
+  return { active: 'bg-green-100 text-green-700', inactive: 'bg-gray-100 text-gray-600', blacklisted: 'bg-red-100 text-red-700',
+           vacant: 'bg-gray-100 text-gray-600', occupied: 'bg-green-100 text-green-700', maintenance: 'bg-yellow-100 text-yellow-700',
+           draft: 'bg-gray-100 text-gray-600', renewed: 'bg-blue-100 text-blue-700', terminated: 'bg-red-100 text-red-700', expired: 'bg-orange-100 text-orange-700' }[status] || '';
+}
+function tenantStatusLabel(status) { return { active: 'نشط', inactive: 'غير نشط', blacklisted: 'قائمة سوداء' }[status] || status; }
+function unitStatusLabel(status) { return { vacant: 'شاغرة', occupied: 'مؤجرة', maintenance: 'صيانة' }[status] || status; }
+function leaseStatusLabel(status) { return { draft: 'مسودة', active: 'ساري', renewed: 'مجدد', terminated: 'منتهي', expired: 'منتهي الصلاحية' }[status] || status; }
+
+async function addTenant() {
+  const full_name = document.getElementById('new_name').value.trim();
+  const phone = document.getElementById('new_phone').value.trim();
+  const national_id = document.getElementById('new_national_id').value.trim();
+  const errorEl = document.getElementById('add_error');
+  errorEl.classList.add('hidden');
+  if (!full_name || !phone) { errorEl.textContent = 'الاسم ورقم الجوال مطلوبان.'; errorEl.classList.remove('hidden'); return; }
+  const { error } = await supabase.from('tenants').insert({ full_name, phone, national_id: national_id || null });
+  if (error) {
+    errorEl.textContent = error.code === '23505' ? 'يوجد مستأجر مسجل مسبقًا بنفس الجوال أو رقم الهوية.' : 'حدث خطأ، حاول مرة أخرى.';
+    errorEl.classList.remove('hidden'); return;
+  }
+  document.getElementById('new_name').value = '';
+  document.getElementById('new_phone').value = '';
+  document.getElementById('new_national_id').value = '';
+  await loadTenants();
+}
+
+async function blacklistTenant(id) {
+  const reason = prompt('اكتب سبب الإدراج في القائمة السوداء:');
+  if (!reason || reason.trim().length < 3) return;
+  await supabase.from('tenants').update({ status: 'blacklisted', blacklist_reason: reason, blacklisted_at: new Date().toISOString() }).eq('id', id);
+  await loadTenants();
+}
+
+async function reinstateTenant(id) {
+  await supabase.from('tenants').update({ status: 'active', blacklist_reason: null, blacklisted_at: null }).eq('id', id);
+  await loadTenants();
+}
+
+/* ---------------- الوحدات ---------------- */
+let units = [];
+
+async function renderUnitsTab() {
+  const c = document.getElementById('tab_content');
+  c.innerHTML = `
+    <div class="bg-white rounded-xl shadow p-4 mb-4">
+      <h2 class="font-bold mb-3">إضافة وحدة جديدة</h2>
+      <div class="grid grid-cols-2 gap-3">
+        <input id="new_building" placeholder="اسم المبنى *" class="border rounded-lg px-3 py-2" />
+        <input id="new_unit_number" placeholder="رقم الوحدة *" class="border rounded-lg px-3 py-2" />
+        <input id="new_area" type="number" placeholder="المساحة (م²)" class="border rounded-lg px-3 py-2" />
+        <input id="new_rent" type="number" placeholder="الإيجار الأساسي (ر.س) *" class="border rounded-lg px-3 py-2" />
+      </div>
+      <p id="unit_error" class="text-red-600 text-sm mt-2 hidden"></p>
+      <button onclick="addUnit()" class="mt-3 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">+ إضافة</button>
+    </div>
+    <div id="units_list" class="space-y-3"></div>
+  `;
+  await loadUnits();
+}
+
+async function loadUnits() {
+  const { data } = await supabase.from('units').select('*').order('created_at', { ascending: false });
+  units = data || [];
+  renderUnitsList();
+}
+
+function renderUnitsList() {
+  const list = document.getElementById('units_list');
+  if (!list) return;
+  if (units.length === 0) { list.innerHTML = `<p class="text-center text-gray-400 py-8">لا يوجد وحدات بعد</p>`; return; }
+  list.innerHTML = units.map(u => `
+    <div class="bg-white rounded-xl shadow p-4 flex items-center justify-between">
+      <div>
+        <p class="font-bold">${u.building_name} - وحدة ${u.unit_number}</p>
+        <p class="text-sm text-gray-500">${u.area_sqm ? u.area_sqm + ' م² · ' : ''}${Number(u.base_rent).toLocaleString('ar-SA')} ر.س / شهريًا</p>
+      </div>
+      <span class="px-2 py-1 rounded-full text-xs ${statusClass(u.status)}">${unitStatusLabel(u.status)}</span>
+    </div>
+  `).join('');
+}
+
+async function addUnit() {
+  const building_name = document.getElementById('new_building').value.trim();
+  const unit_number = document.getElementById('new_unit_number').value.trim();
+  const area_sqm = document.getElementById('new_area').value || null;
+  const base_rent = document.getElementById('new_rent').value;
+  const errorEl = document.getElementById('unit_error');
+  errorEl.classList.add('hidden');
+  if (!building_name || !unit_number || !base_rent) { errorEl.textContent = 'اسم المبنى، رقم الوحدة، والإيجار مطلوبين.'; errorEl.classList.remove('hidden'); return; }
+  const { error } = await supabase.from('units').insert({ building_name, unit_number, area_sqm, base_rent });
+  if (error) { errorEl.textContent = 'حدث خطأ، حاول مرة أخرى.'; errorEl.classList.remove('hidden'); return; }
+  document.getElementById('new_building').value = '';
+  document.getElementById('new_unit_number').value = '';
+  document.getElementById('new_area').value = '';
+  document.getElementById('new_rent').value = '';
+  await loadUnits();
+}
+
+/* ---------------- العقود ---------------- */
+let leases = [];
+
+async function renderLeasesTab() {
+  const c = document.getElementById('tab_content');
+  await loadTenants();
+  await loadUnits();
+  const vacantUnits = units.filter(u => u.status === 'vacant');
+  c.innerHTML = `
+    <div class="bg-white rounded-xl shadow p-4 mb-4">
+      <h2 class="font-bold mb-3">إنشاء عقد جديد</h2>
+      <div class="grid grid-cols-2 gap-3">
+        <select id="lease_tenant" class="border rounded-lg px-3 py-2 col-span-2">
+          <option value="">اختر المستأجر *</option>
+          ${tenants.filter(t => t.status === 'active').map(t => `<option value="${t.id}">${t.full_name} - ${t.phone}</option>`).join('')}
+        </select>
+        <select id="lease_unit" class="border rounded-lg px-3 py-2 col-span-2">
+          <option value="">اختر الوحدة الشاغرة *</option>
+          ${vacantUnits.map(u => `<option value="${u.id}" data-rent="${u.base_rent}">${u.building_name} - وحدة ${u.unit_number}</option>`).join('')}
+        </select>
+        <input id="lease_start" type="date" class="border rounded-lg px-3 py-2" />
+        <input id="lease_end" type="date" class="border rounded-lg px-3 py-2" />
+        <input id="lease_rent" type="number" placeholder="الإيجار الشهري (ر.س) *" class="border rounded-lg px-3 py-2 col-span-2" />
+      </div>
+      <p id="lease_error" class="text-red-600 text-sm mt-2 hidden"></p>
+      <button onclick="addLease()" class="mt-3 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">+ إنشاء العقد وتفعيله</button>
+    </div>
+    <div id="leases_list" class="space-y-3"></div>
+  `;
+  document.getElementById('lease_unit').addEventListener('change', (e) => {
+    const rent = e.target.selectedOptions[0]?.dataset.rent;
+    if (rent) document.getElementById('lease_rent').value = rent;
+  });
+  await loadLeases();
+}
+
+async function loadLeases() {
+  const { data } = await supabase
+    .from('leases')
+    .select('*, tenants(full_name), units(building_name, unit_number)')
+    .order('created_at', { ascending: false });
+  leases = data || [];
+  renderLeasesList();
+}
+
+function renderLeasesList() {
+  const list = document.getElementById('leases_list');
+  if (!list) return;
+  if (leases.length === 0) { list.innerHTML = `<p class="text-center text-gray-400 py-8">لا يوجد عقود بعد</p>`; return; }
+  list.innerHTML = leases.map(l => `
+    <div class="bg-white rounded-xl shadow p-4 flex items-center justify-between">
+      <div>
+        <p class="font-bold">${l.tenants?.full_name || '—'}</p>
+        <p class="text-sm text-gray-500">${l.units?.building_name || ''} - وحدة ${l.units?.unit_number || ''} · ${Number(l.monthly_rent).toLocaleString('ar-SA')} ر.س/شهر</p>
+        <p class="text-xs text-gray-400">${l.start_date} → ${l.end_date}</p>
+      </div>
+      <div class="flex items-center gap-2">
+        <span class="px-2 py-1 rounded-full text-xs ${statusClass(l.status)}">${leaseStatusLabel(l.status)}</span>
+        ${l.status === 'active' ? `<button onclick="terminateLease('${l.id}','${l.unit_id}')" class="text-xs text-red-600 border border-red-200 rounded-lg px-2 py-1 hover:bg-red-50">إنهاء</button>` : ''}
+      </div>
+    </div>
+  `).join('');
+}
+
+async function addLease() {
+  const tenant_id = document.getElementById('lease_tenant').value;
+  const unit_id = document.getElementById('lease_unit').value;
+  const start_date = document.getElementById('lease_start').value;
+  const end_date = document.getElementById('lease_end').value;
+  const monthly_rent = document.getElementById('lease_rent').value;
+  const errorEl = document.getElementById('lease_error');
+  errorEl.classList.add('hidden');
+
+  if (!tenant_id || !unit_id || !start_date || !end_date || !monthly_rent) {
+    errorEl.textContent = 'كل الحقول مطلوبة.'; errorEl.classList.remove('hidden'); return;
+  }
+  if (new Date(end_date) <= new Date(start_date)) {
+    errorEl.textContent = 'تاريخ النهاية يجب أن يكون بعد تاريخ البداية.'; errorEl.classList.remove('hidden'); return;
+  }
+
+  const { error } = await supabase.from('leases').insert({ tenant_id, unit_id, start_date, end_date, monthly_rent, status: 'active' });
+  if (error) { errorEl.textContent = 'حدث خطأ، حاول مرة أخرى.'; errorEl.classList.remove('hidden'); return; }
+
+  await supabase.from('units').update({ status: 'occupied' }).eq('id', unit_id);
+  await renderLeasesTab();
+}
+
+async function terminateLease(leaseId, unitId) {
+  if (!confirm('هل أنت متأكد من إنهاء هذا العقد؟')) return;
+  await supabase.from('leases').update({ status: 'terminated' }).eq('id', leaseId);
+  await supabase.from('units').update({ status: 'vacant' }).eq('id', unitId);
+  await renderLeasesTab();
+}
+
+init();
+</script>
+
+</body>
+</html>
