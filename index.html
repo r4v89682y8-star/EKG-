@@ -51,7 +51,7 @@ tailwind.config = { theme:{ extend:{
   const SUPABASE_KEY = "sb_publishable_26WQJ1wSFyt3eNDdkj2yyw_RwYDK6yf";
   const BRAND = "عُمران";              // ← اسم النظام، غيّره من هنا
   const BRAND_SUB = "إدارة الأملاك";
-  const VERSION = "v6";                // للتأكد من أن النسخة المنشورة محدّثة
+  const VERSION = "v7";                // للتأكد من أن النسخة المنشورة محدّثة
 </script>
 
 <div id="app"></div>
@@ -354,14 +354,18 @@ function renderExpenses(){
       </div>
       <div class="text-left shrink-0">
         <p class="font-bold text-amber-600"><span class="num">${money(e.amount)}</span> <span class="text-xs text-ink-500">ر.س</span></p>
-        ${(!e.source||e.source==='manual')?`<button onclick="deleteExpense('${e.id}')" class="btn-ghost text-rose-600 border-rose-100 mt-1.5">حذف</button>`
-          :`<p class="text-xs text-ink-300 mt-1.5">يُحذف من مصدره</p>`}
+        <button onclick="deleteExpense('${e.id}','${e.source||'manual'}')" class="btn-ghost text-rose-600 border-rose-100 mt-1.5">حذف</button>
       </div>
     </div>`).join('');
 }
-async function deleteExpense(id){
-  if(!confirm('حذف هذا المصروف؟')) return;
-  await db.from('expenses').delete().eq('id',id);
+async function deleteExpense(id,source){
+  const note = source==='maintenance' ? 'هذا القيد ناتج عن عمل صيانة. حذفه يزيل المبلغ من الحسابات ويبقي سجل الصيانة.'
+             : source==='salary'      ? 'هذا القيد ناتج عن صرف رواتب. حذفه يزيل المبلغ من الحسابات ويبقي بيانات العامل.'
+             : source==='meter'       ? 'هذا القيد ناتج عن فاتورة عداد. حذفه يزيل المبلغ من الحسابات ويبقي القراءة.'
+             : 'حذف هذا المصروف؟';
+  if(!confirm(note+'\nمتابعة؟')) return;
+  const {error}=await db.from('expenses').delete().eq('id',id);
+  if(error) return alert('تعذّر الحذف: '+error.message);
   financeView();
 }
 async function addExpense(){
@@ -611,6 +615,8 @@ async function staffView(){
       </div>
     </div>
 
+    <div id="payruns"></div>
+
     <details class="card p-5">
       <summary class="font-semibold cursor-pointer">إضافة عامل</summary>
       <div class="grid sm:grid-cols-2 gap-3 mt-4">
@@ -630,6 +636,35 @@ async function staffView(){
     <div id="slist" class="space-y-2.5"></div>
   </div>`;
   renderStaff();
+  renderPayRuns();
+}
+
+function renderPayRuns(){
+  const box=document.getElementById('payruns'); if(!box) return;
+  const rows=expenses.filter(e=>e.source==='salary');
+  if(!rows.length){ box.innerHTML=''; return; }
+  const byPeriod={};
+  rows.forEach(r=>{ const k=r.period||r.expense_date.slice(0,7); (byPeriod[k]=byPeriod[k]||[]).push(r); });
+  box.innerHTML=`<div class="card p-5">
+    <h2 class="font-bold text-lg mb-4">سجل صرف الرواتب</h2>
+    <div class="space-y-2">
+      ${Object.entries(byPeriod).sort((a,b)=>b[0].localeCompare(a[0])).map(([k,list])=>`
+        <div class="flex items-center justify-between gap-3 border border-paper-100 rounded-lg p-3">
+          <div>
+            <p class="font-semibold"><span class="num">${k}</span></p>
+            <p class="text-xs text-ink-500"><span class="num">${list.length}</span> عامل · <span class="num">${money(list.reduce((s,r)=>s+Number(r.amount),0))}</span> ر.س</p>
+          </div>
+          <button onclick="cancelPayroll('${k}')" class="btn-ghost text-rose-600 border-rose-100">إلغاء الصرف</button>
+        </div>`).join('')}
+    </div>
+  </div>`;
+}
+
+async function cancelPayroll(period){
+  if(!confirm(`إلغاء صرف رواتب ${period}؟ ستُحذف قيودها من المصروفات ويرجع الصافي كما كان.`)) return;
+  const {error}=await db.from('expenses').delete().eq('source','salary').eq('period',period);
+  if(error) return alert('تعذّر الإلغاء: '+error.message);
+  staffView();
 }
 
 function renderStaff(){
@@ -643,9 +678,12 @@ function renderStaff(){
       </div>
       <div class="flex flex-col items-end gap-1.5 shrink-0">
         <p class="font-bold"><span class="num">${money(s.monthly_salary)}</span> <span class="text-xs text-ink-500">ر.س/شهر</span></p>
-        ${s.status==='active'
-          ? `<button onclick="endStaff('${s.id}')" class="btn-ghost text-rose-600 border-rose-100">إنهاء الخدمة</button>`
-          : `<span class="pill bg-paper-100 text-ink-500">خارج الخدمة</span>`}
+        <div class="flex gap-1.5">
+          ${s.status==='active'
+            ? `<button onclick="endStaff('${s.id}')" class="btn-ghost">إنهاء الخدمة</button>`
+            : `<span class="pill bg-paper-100 text-ink-500">خارج الخدمة</span>`}
+          <button onclick="deleteStaff('${s.id}')" class="btn-ghost text-rose-600 border-rose-100">حذف</button>
+        </div>
       </div>
     </div>`).join('');
 }
@@ -663,6 +701,18 @@ async function addStaff(){
 async function endStaff(id){
   if(!confirm('إنهاء خدمة هذا العامل؟ سيتوقف احتساب راتبه في الرواتب القادمة.')) return;
   await db.from('employees').update({status:'inactive'}).eq('id',id);
+  staffView();
+}
+
+async function deleteStaff(id){
+  const paid=expenses.filter(e=>e.source==='salary'&&e.ref_id===id);
+  const total=paid.reduce((s,e)=>s+Number(e.amount),0);
+  if(!confirm(paid.length
+    ? `حذف هذا العامل و${paid.length} قيد راتب بإجمالي ${money(total)} ر.س من المصروفات؟`
+    : 'حذف هذا العامل نهائيًا؟')) return;
+  if(paid.length) await db.from('expenses').delete().eq('source','salary').eq('ref_id',id);
+  const {error}=await db.from('employees').delete().eq('id',id);
+  if(error) return alert('تعذّر الحذف: '+error.message);
   staffView();
 }
 
