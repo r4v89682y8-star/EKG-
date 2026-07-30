@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>اصول — إدارة الأملاك</title>
+<title>عُمران — إدارة الأملاك</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Readex+Pro:wght@400;500;600;700&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=Rubik:wght@500;600;700&display=swap" rel="stylesheet">
@@ -71,7 +71,7 @@ tailwind.config = { theme:{ extend:{
   const SUPABASE_KEY = "sb_publishable_26WQJ1wSFyt3eNDdkj2yyw_RwYDK6yf";
   const BRAND = "أصول";              // ← اسم النظام، غيّره من هنا
   const BRAND_SUB = "إدارة الأملاك";
-  const VERSION = "v8";                // للتأكد من أن النسخة المنشورة محدّثة
+  const VERSION = "v9";                // للتأكد من أن النسخة المنشورة محدّثة
 </script>
 
 <div id="app"></div>
@@ -899,9 +899,12 @@ function renderLeases(){
     </div>
     <div class="flex flex-col items-end gap-1.5 shrink-0">
       <span class="pill ${C[l.status]||''}">${L[l.status]||l.status}</span>
-      ${l.status==='active'
-        ? `<button onclick="endLease('${l.id}','${l.unit_id}')" class="btn-ghost text-rose-600 border-rose-100">إنهاء</button>`
-        : `<button onclick="deleteLease('${l.id}')" class="btn-ghost text-rose-600 border-rose-100">حذف من السجل</button>`}
+      <div class="flex gap-1.5">
+        <button onclick="openLeaseEdit('${l.id}')" class="btn-ghost">تعديل</button>
+        ${l.status==='active'
+          ? `<button onclick="endLease('${l.id}','${l.unit_id}')" class="btn-ghost text-rose-600 border-rose-100">إنهاء</button>`
+          : `<button onclick="deleteLease('${l.id}')" class="btn-ghost text-rose-600 border-rose-100">حذف من السجل</button>`}
+      </div>
     </div></div>`).join('');
 }
 function previewPlan(){
@@ -952,6 +955,67 @@ function buildSchedule(lease_id,start,end,annual,count){
   while(d<=last){ rows.push({lease_id,due_date:d.toISOString().slice(0,10),amount,status:'pending'}); d.setMonth(d.getMonth()+step); }
   return rows;
 }
+function openLeaseEdit(id){
+  const l=leases.find(x=>x.id===id);
+  const paid=payments.filter(p=>p.lease_id===id&&p.status==='paid').length;
+  const w=document.createElement('div'); w.id='modal'; w.className='fixed inset-0 z-40 grid place-items-center p-4 overflow-y-auto';
+  w.innerHTML=`<div class="absolute inset-0 bg-ink-900/45" onclick="closeModal()"></div>
+  <div class="card relative w-full max-w-md p-6 fade my-8">
+    <h3 class="font-bold text-xl">تعديل العقد</h3>
+    <p class="text-ink-500 text-sm mt-1 mb-5">${l.tenants?.full_name||'—'} · ${l.units?.building_name||''} وحدة ${l.units?.unit_number||''}</p>
+    <div class="grid grid-cols-2 gap-3">
+      <div><label class="eyebrow block mb-2">بداية العقد</label><input id="le_s" type="date" class="field" value="${l.start_date||''}"></div>
+      <div><label class="eyebrow block mb-2">نهاية العقد</label><input id="le_e" type="date" class="field" value="${l.end_date||''}"></div>
+      <div><label class="eyebrow block mb-2">الإيجار السنوي (ر.س)</label><input id="le_r" type="number" class="field" value="${l.annual_rent??''}"></div>
+      <div><label class="eyebrow block mb-2">عدد الدفعات</label>
+        <select id="le_c" class="field">
+          ${[1,2,3,4,12].map(n=>`<option value="${n}" ${Number(l.installments)===n?'selected':''}>${n===1?'دفعة واحدة':n===12?'١٢ دفعة (شهري)':n+' دفعات'}</option>`).join('')}
+        </select></div>
+      <div class="col-span-2"><label class="eyebrow block mb-2">حالة العقد</label>
+        <select id="le_st" class="field">
+          <option value="active" ${l.status==='active'?'selected':''}>ساري</option>
+          <option value="renewed" ${l.status==='renewed'?'selected':''}>مجدد</option>
+          <option value="terminated" ${l.status==='terminated'?'selected':''}>منتهي</option>
+          <option value="expired" ${l.status==='expired'?'selected':''}>منتهي الصلاحية</option>
+        </select></div>
+    </div>
+    <label class="flex items-start gap-2 mt-4 text-sm">
+      <input type="checkbox" id="le_regen" class="mt-1">
+      <span>إعادة توليد جدول الدفعات وفق البيانات الجديدة
+        <span class="block text-xs text-ink-500 mt-0.5">${paid?`تنبيه: يوجد <span class="num">${paid}</span> دفعة مسددة — إعادة التوليد ستحذفها مع سندات قبضها.`:'الدفعات الحالية ستُستبدل بجدول جديد.'}</span>
+      </span>
+    </label>
+    <p id="le_err" class="text-rose-600 text-sm mt-3 hidden"></p>
+    <div class="flex gap-2 mt-5">
+      <button onclick="saveLeaseEdit('${l.id}','${l.unit_id}')" class="btn-primary flex-1">حفظ التعديلات</button>
+      <button onclick="closeModal()" class="btn-ghost px-4">إلغاء</button>
+    </div>
+  </div>`;
+  document.body.appendChild(w);
+}
+
+async function saveLeaseEdit(id,unitId){
+  const start_date=le_s.value, end_date=le_e.value, annual=Number(le_r.value),
+        count=Number(le_c.value), status=le_st.value, regen=le_regen.checked,
+        err=document.getElementById('le_err');
+  err.classList.add('hidden');
+  const fail=m=>{err.textContent=m;err.classList.remove('hidden');};
+  if(!start_date||!end_date||!annual) return fail('التواريخ والإيجار مطلوبة.');
+  if(new Date(end_date)<=new Date(start_date)) return fail('تاريخ النهاية يجب أن يكون بعد تاريخ البداية.');
+  if(regen && !confirm('سيُحذف جدول الدفعات الحالي بالكامل ويُولَّد من جديد. متابعة؟')) return;
+
+  const {error}=await db.from('leases').update({ start_date, end_date, status,
+    annual_rent:annual, installments:count, monthly_rent:Math.round(annual/12) }).eq('id',id);
+  if(error) return fail('تعذّر الحفظ: '+error.message);
+
+  if(regen){
+    await db.from('payments').delete().eq('lease_id',id);
+    await db.from('payments').insert(buildSchedule(id,start_date,end_date,annual,count));
+  }
+  await db.from('units').update({ status: (status==='active'||status==='renewed') ? 'occupied' : 'vacant' }).eq('id',unitId);
+  closeModal(); leasesView();
+}
+
 async function endLease(id,unitId){
   const future=payments.filter(p=>p.lease_id===id&&p.status==='pending'&&p.due_date>today()).length;
   if(!confirm(`إنهاء هذا العقد وإرجاع الوحدة إلى الشواغر؟${future?`\nسيتم إلغاء ${future} دفعة مستقبلية لم تُستحق بعد.`:''}`)) return;
