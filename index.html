@@ -51,6 +51,7 @@ tailwind.config = { theme:{ extend:{
   const SUPABASE_KEY = "sb_publishable_26WQJ1wSFyt3eNDdkj2yyw_RwYDK6yf";
   const BRAND = "عُمران";              // ← اسم النظام، غيّره من هنا
   const BRAND_SUB = "إدارة الأملاك";
+  const VERSION = "v6";                // للتأكد من أن النسخة المنشورة محدّثة
 </script>
 
 <div id="app"></div>
@@ -139,7 +140,7 @@ const brandBlock = () => `
     <div class="w-10 h-10 rounded-xl bg-teal-900 grid place-items-center shrink-0">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.7"><path d="M3 21V9l9-6 9 6v12M9 21v-6h6v6"/></svg>
     </div>
-    <div class="leading-tight"><p class="font-bold display">${BRAND}</p><p class="text-xs text-ink-500">${BRAND_SUB}</p></div>
+    <div class="leading-tight"><p class="font-bold display">${BRAND}</p><p class="text-xs text-ink-500">${BRAND_SUB} · <span class="num">${VERSION}</span></p></div>
   </div>`;
 const navBtn = t => `<button onclick="go('${t.id}')" class="navlink ${tab===t.id?'on':''}">
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="${t.icon}"/></svg>${t.label}</button>`;
@@ -904,18 +905,25 @@ async function saveUnitEdit(id){
 }
 
 async function deleteUnit(id){
-  const active=leases.filter(l=>l.unit_id===id&&l.status==='active');
-  if(active.length) return alert('هذه الوحدة عليها عقد ساري. أنهِ العقد أولاً ثم احذفها.');
-  const old=leases.filter(l=>l.unit_id===id);
-  const msg = old.length
-    ? `هذه الوحدة لها ${old.length} عقد منتهٍ في السجل. حذفها سيحذف تلك العقود ودفعاتها نهائيًا. متابعة؟`
+  await load.leases();                                  // بيانات محدّثة دائمًا قبل الفحص
+  const mine=leases.filter(l=>l.unit_id===id);
+  const active=mine.filter(l=>l.status==='active');
+  if(active.length) return alert('هذه الوحدة عليها عقد ساري. أنهِ العقد من قسم العقود أولاً.');
+  const msg = mine.length
+    ? `هذه الوحدة لها ${mine.length} عقد منتهٍ في السجل. حذفها سيحذف تلك العقود ودفعاتها نهائيًا. متابعة؟`
     : 'حذف هذه الوحدة نهائيًا؟';
   if(!confirm(msg)) return;
-  if(old.length) await db.from('leases').delete().in('id',old.map(l=>l.id));
+
+  if(mine.length){
+    await db.from('payments').delete().in('lease_id',mine.map(l=>l.id));
+    const del=await db.from('leases').delete().in('id',mine.map(l=>l.id));
+    if(del.error) return alert('تعذّر حذف عقود هذه الوحدة: '+del.error.message);
+  }
   await db.from('meter_readings').delete().eq('unit_id',id);
   await db.from('expenses').delete().eq('unit_id',id);
+
   const {error}=await db.from('units').delete().eq('id',id);
-  if(error) return alert('تعذّر الحذف — الوحدة مرتبطة بسجلات أخرى.');
+  if(error) return alert('تعذّر حذف الوحدة.\nالسبب: '+error.message);
   closeModal(); unitsView();
 }
 
