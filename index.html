@@ -64,6 +64,8 @@ const TABS = [
   { id:'dash',       label:'لوحة المالك', icon:'M3 13h4v8H3zM10 3h4v18h-4zM17 9h4v12h-4z' },
   { id:'collection', label:'التحصيل',     icon:'M12 1v22M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6' },
   { id:'finance',    label:'المالية',     icon:'M3 3v18h18M7 15l4-5 3 3 5-7' },
+  { id:'maint',      label:'الصيانة',     icon:'M14.7 6.3a4 4 0 01-5.4 5.4L4 17v3h3l5.3-5.3a4 4 0 015.4-5.4l-2.1 2.1-2.8-2.8z' },
+  { id:'staff',      label:'العمال والرواتب', icon:'M17 20v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2M13 7a3.5 3.5 0 11-7 0 3.5 3.5 0 017 0M22 11h-6' },
   { id:'leases',     label:'العقود',      icon:'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h7l5 5v11a2 2 0 01-2 2z' },
   { id:'units',      label:'الوحدات',     icon:'M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z' },
   { id:'tenants',    label:'المستأجرون',  icon:'M17 20v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2M13 7a3.5 3.5 0 11-7 0 3.5 3.5 0 017 0M22 20v-2a4 4 0 00-3-3.87' },
@@ -143,15 +145,17 @@ const navBtn = t => `<button onclick="go('${t.id}')" class="navlink ${tab===t.id
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="${t.icon}"/></svg>${t.label}</button>`;
 function toggleNav(){ navOpen=!navOpen; document.getElementById('drawer').classList.toggle('hidden',!navOpen); }
 function go(t){ tab=t; navOpen=false; shell(); }
-function route(){ ({dash:dashView,collection:collectionView,finance:financeView,leases:leasesView,units:unitsView,tenants:tenantsView})[tab](); }
+function route(){ ({dash:dashView,collection:collectionView,finance:financeView,maint:maintView,staff:staffView,leases:leasesView,units:unitsView,tenants:tenantsView})[tab](); }
 const head=(t,s)=>`<div class="mb-7"><h1 class="text-2xl font-bold">${t}</h1><p class="text-ink-500 mt-1">${s}</p></div>`;
 const empty=m=>`<div class="card p-10 text-center text-ink-500">${m}</div>`;
 
 /* ───── data ───── */
-let tenants=[],units=[],leases=[],payments=[],expenses=[],readings=[];
+let tenants=[],units=[],leases=[],payments=[],expenses=[],readings=[],maint=[],staff=[];
 const load = {
   tenants: async q=>{ let r=db.from('tenants').select('*').order('created_at',{ascending:false}); if(q) r=r.or(`full_name.ilike.%${q}%,phone.ilike.%${q}%`); tenants=(await r).data||[]; },
   units:   async ()=>{ units=(await db.from('units').select('*').order('building_name')).data||[]; },
+  maint:   async ()=>{ maint=(await db.from('maintenance').select('*').order('service_date',{ascending:false})).data||[]; },
+  staff:   async ()=>{ staff=(await db.from('employees').select('*').order('full_name')).data||[]; },
   leases:  async ()=>{ leases=(await db.from('leases').select('*, tenants(full_name,phone), units(building_name,unit_number)').order('created_at',{ascending:false})).data||[]; },
   payments:async ()=>{ payments=(await db.from('payments').select('*, leases(unit_id, monthly_rent, tenants(full_name), units(building_name,unit_number))').order('due_date')).data||[]; },
   expenses:async ()=>{ expenses=(await db.from('expenses').select('*').order('expense_date',{ascending:false})).data||[]; },
@@ -434,6 +438,225 @@ async function saveReceipt(id){
   closeModal(); collectionView();
 }
 
+/* ───── الصيانة ───── */
+const MAINT_CATS={dynamo:'دينمو / مضخة',heater:'سخان',elevator:'مصعد',plumbing:'سباكة',electrical:'كهرباء',ac:'تكييف',paint:'دهان وترميم',other:'أخرى'};
+
+async function maintView(){
+  const m=document.getElementById('main');
+  m.innerHTML=head('الصيانة','أعمال الصيانة وتوزيع تكلفتها على الوحدات المستفيدة');
+  await Promise.all([load.units(),load.maint()]);
+  const bl=[...new Set(units.map(u=>u.building_name))];
+  m.innerHTML+=`
+  <div class="fade">
+    <details class="card p-5 mb-6">
+      <summary class="font-semibold cursor-pointer">عمل صيانة جديد</summary>
+      <div class="grid sm:grid-cols-2 gap-3 mt-4">
+        <div><label class="eyebrow block mb-2">المبنى</label>
+          <select id="mt_b" class="field" onchange="fillMaintUnits()">
+            <option value="">اختر المبنى</option>${bl.map(b=>`<option>${b}</option>`).join('')}
+          </select></div>
+        <div><label class="eyebrow block mb-2">البند</label>
+          <select id="mt_c" class="field">${Object.entries(MAINT_CATS).map(([k,v])=>`<option value="${k}">${v}</option>`).join('')}</select></div>
+        <div><label class="eyebrow block mb-2">التكلفة (ر.س)</label><input id="mt_cost" type="number" class="field" oninput="splitPreview()"></div>
+        <div><label class="eyebrow block mb-2">التاريخ</label><input id="mt_d" type="date" class="field" value="${today()}"></div>
+        <div><label class="eyebrow block mb-2">المورد / الفني</label><input id="mt_v" class="field" placeholder="اختياري"></div>
+        <div><label class="eyebrow block mb-2">الوصف</label><input id="mt_desc" class="field" placeholder="مثال: تغيير دينمو المضخة الرئيسية"></div>
+      </div>
+
+      <div class="mt-5">
+        <label class="eyebrow block mb-2">على من تُحمّل التكلفة؟</label>
+        <div class="flex gap-4 text-sm mb-3">
+          <label class="flex items-center gap-2"><input type="radio" name="scope" value="units" checked onchange="toggleScope()"> وحدات محددة</label>
+          <label class="flex items-center gap-2"><input type="radio" name="scope" value="building" onchange="toggleScope()"> المبنى كامل (مشترك)</label>
+        </div>
+        <div id="mt_units" class="grid grid-cols-2 sm:grid-cols-3 gap-2"></div>
+        <p id="mt_split" class="text-sm text-teal-700 font-semibold mt-3"></p>
+      </div>
+
+      <p id="mt_err" class="text-rose-600 text-sm mt-3 hidden"></p>
+      <button onclick="addMaint()" class="btn-primary mt-4">حفظ عمل الصيانة</button>
+    </details>
+    <div id="mtlist" class="space-y-2.5"></div>
+  </div>`;
+  renderMaint();
+}
+
+function fillMaintUnits(){
+  const b=document.getElementById('mt_b').value;
+  const box=document.getElementById('mt_units');
+  const list=units.filter(u=>u.building_name===b);
+  box.innerHTML = !b ? `<p class="text-sm text-ink-300 col-span-3">اختر المبنى أولاً</p>`
+    : list.length ? list.map(u=>`
+      <label class="flex items-center gap-2 border border-paper-200 rounded-lg px-3 py-2 text-sm">
+        <input type="checkbox" class="mt_u" value="${u.id}" onchange="splitPreview()"> وحدة ${u.unit_number}
+      </label>`).join('')
+    : `<p class="text-sm text-ink-300 col-span-3">لا وحدات في هذا المبنى</p>`;
+  splitPreview();
+}
+function toggleScope(){
+  const perUnit=document.querySelector('input[name=scope]:checked').value==='units';
+  document.getElementById('mt_units').classList.toggle('hidden',!perUnit);
+  splitPreview();
+}
+function splitPreview(){
+  const box=document.getElementById('mt_split'); if(!box) return;
+  const cost=Number(document.getElementById('mt_cost').value);
+  const perUnit=document.querySelector('input[name=scope]:checked').value==='units';
+  const n=document.querySelectorAll('.mt_u:checked').length;
+  box.textContent = !cost ? ''
+    : !perUnit ? `تُحمّل كاملة على المبنى (مصروف مشترك): ${money(cost)} ر.س`
+    : n ? `تُقسّم على ${n} وحدة — ${money(Math.round(cost/n))} ر.س لكل وحدة`
+    : 'اختر الوحدات المستفيدة لتوزيع التكلفة';
+}
+
+async function addMaint(){
+  const building_name=document.getElementById('mt_b').value,
+        category=document.getElementById('mt_c').value,
+        cost=Number(document.getElementById('mt_cost').value),
+        service_date=document.getElementById('mt_d').value,
+        vendor=document.getElementById('mt_v').value.trim()||null,
+        description=document.getElementById('mt_desc').value.trim()||null,
+        perUnit=document.querySelector('input[name=scope]:checked').value==='units',
+        unit_ids=[...document.querySelectorAll('.mt_u:checked')].map(c=>c.value),
+        err=document.getElementById('mt_err');
+  err.classList.add('hidden');
+  const fail=m=>{err.textContent=m;err.classList.remove('hidden');};
+  if(!building_name||!cost||!service_date) return fail('المبنى والتكلفة والتاريخ مطلوبة.');
+  if(perUnit && !unit_ids.length) return fail('اختر الوحدات المستفيدة، أو حمّل التكلفة على المبنى كامل.');
+
+  const {data,error}=await db.from('maintenance').insert({
+    building_name,category,description,cost,vendor,service_date,
+    scope: perUnit?'units':'building', unit_ids: perUnit?unit_ids:[]
+  }).select().single();
+  if(error) return fail('تعذّر الحفظ. حاول مرة أخرى.');
+
+  // تُقيَّد التكلفة في المصروفات تلقائيًا حتى تظهر في المالية ولوحة المالك
+  const rows = perUnit
+    ? unit_ids.map(uid=>({ building_name, category:'maintenance', amount:Math.round(cost/unit_ids.length),
+        expense_date:service_date, unit_id:uid, source:'maintenance', ref_id:data.id,
+        notes:`${MAINT_CATS[category]}${description?' — '+description:''}` }))
+    : [{ building_name, category:'maintenance', amount:cost, expense_date:service_date,
+        source:'maintenance', ref_id:data.id, notes:`${MAINT_CATS[category]} (مشترك)${description?' — '+description:''}` }];
+  await db.from('expenses').insert(rows);
+  maintView();
+}
+
+function renderMaint(){
+  const box=document.getElementById('mtlist');
+  if(!maint.length){ box.innerHTML=empty('لا أعمال صيانة مسجّلة بعد.'); return; }
+  box.innerHTML=maint.map(x=>{
+    const nums=(x.unit_ids||[]).map(id=>units.find(u=>u.id===id)?.unit_number).filter(Boolean);
+    const share=nums.length?Math.round(x.cost/nums.length):x.cost;
+    return `<div class="card p-4">
+      <div class="flex items-start justify-between gap-3">
+        <div class="min-w-0">
+          <p class="font-semibold">${MAINT_CATS[x.category]||x.category} · ${x.building_name}</p>
+          ${x.description?`<p class="text-sm text-ink-500">${x.description}</p>`:''}
+          <p class="text-xs text-ink-500 mt-1"><span class="num">${x.service_date}</span>${x.vendor?` · ${x.vendor}`:''}</p>
+        </div>
+        <p class="font-bold shrink-0 text-amber-600"><span class="num">${money(x.cost)}</span> <span class="text-xs text-ink-500">ر.س</span></p>
+      </div>
+      <div class="mt-3 pt-3 border-t border-paper-100 text-sm">
+        ${nums.length
+          ? `<p class="text-ink-700">الوحدات المستفيدة: ${nums.map(n=>`<span class="pill bg-teal-100 text-teal-700 mx-0.5">وحدة <span class="num">${n}</span></span>`).join('')}</p>
+             <p class="text-xs text-ink-500 mt-1.5">نصيب كل وحدة <span class="num">${money(share)}</span> ر.س</p>`
+          : `<p class="text-ink-500">مصروف مشترك على المبنى كامل</p>`}
+      </div>
+    </div>`;}).join('');
+}
+
+/* ───── العمال والرواتب ───── */
+const ROLES={guard:'حارس',cleaner:'عامل نظافة',technician:'فني',electrician:'كهربائي',plumber:'سباك',supervisor:'مشرف',other:'أخرى'};
+
+async function staffView(){
+  const m=document.getElementById('main');
+  m.innerHTML=head('العمال والرواتب','بيانات العاملين ورواتبهم الشهرية');
+  await Promise.all([load.units(),load.staff(),load.expenses()]);
+  const bl=[...new Set(units.map(u=>u.building_name))];
+  const active=staff.filter(s=>s.status==='active');
+  const payroll=active.reduce((s,e)=>s+Number(e.monthly_salary),0);
+  const period=today().slice(0,7);
+  const paidThis=expenses.some(e=>e.source==='salary'&&e.period===period);
+
+  m.innerHTML+=`
+  <div class="fade space-y-6">
+    <div class="grid grid-cols-2 lg:grid-cols-3 gap-3">
+      ${stat('الرواتب الشهرية',payroll,active.length+' عامل على رأس العمل','ink-900')}
+      ${stat('الرواتب السنوية',payroll*12,'التزام تشغيلي متكرر','amber-600')}
+      <div class="card p-5">
+        <p class="eyebrow">رواتب ${MONTHS[new Date().getMonth()]}</p>
+        <p class="text-lg font-bold display mt-2 ${paidThis?'text-teal-700':'text-rose-600'}">${paidThis?'مصروفة':'لم تُصرف'}</p>
+        ${paidThis?'<p class="text-xs text-ink-500 mt-1.5">قُيّدت في المصروفات</p>'
+          :`<button onclick="runPayroll()" class="btn-ghost mt-2 text-teal-700 border-teal-100">تسجيل صرف رواتب الشهر</button>`}
+      </div>
+    </div>
+
+    <details class="card p-5">
+      <summary class="font-semibold cursor-pointer">إضافة عامل</summary>
+      <div class="grid sm:grid-cols-2 gap-3 mt-4">
+        <div><label class="eyebrow block mb-2">الاسم</label><input id="s_n" class="field"></div>
+        <div><label class="eyebrow block mb-2">الوظيفة</label>
+          <select id="s_r" class="field">${Object.entries(ROLES).map(([k,v])=>`<option value="${k}">${v}</option>`).join('')}</select></div>
+        <div><label class="eyebrow block mb-2">الراتب الشهري (ر.س)</label><input id="s_s" type="number" class="field"></div>
+        <div><label class="eyebrow block mb-2">المبنى</label>
+          <select id="s_b" class="field"><option value="">غير مخصص</option>${bl.map(b=>`<option>${b}</option>`).join('')}</select></div>
+        <div><label class="eyebrow block mb-2">رقم الجوال</label><input id="s_p" class="field" dir="ltr"></div>
+        <div><label class="eyebrow block mb-2">تاريخ المباشرة</label><input id="s_h" type="date" class="field"></div>
+      </div>
+      <p id="s_err" class="text-rose-600 text-sm mt-3 hidden"></p>
+      <button onclick="addStaff()" class="btn-primary mt-4">إضافة العامل</button>
+    </details>
+
+    <div id="slist" class="space-y-2.5"></div>
+  </div>`;
+  renderStaff();
+}
+
+function renderStaff(){
+  const box=document.getElementById('slist');
+  if(!staff.length){ box.innerHTML=empty('لا عمال مسجّلون بعد.'); return; }
+  box.innerHTML=staff.map(s=>`
+    <div class="card p-4 flex items-center justify-between gap-3">
+      <div class="min-w-0">
+        <p class="font-semibold truncate">${s.full_name}</p>
+        <p class="text-sm text-ink-500">${ROLES[s.role]||s.role||'—'}${s.building_name?` · ${s.building_name}`:''}${s.phone?` · <span class="num">${s.phone}</span>`:''}</p>
+      </div>
+      <div class="flex flex-col items-end gap-1.5 shrink-0">
+        <p class="font-bold"><span class="num">${money(s.monthly_salary)}</span> <span class="text-xs text-ink-500">ر.س/شهر</span></p>
+        ${s.status==='active'
+          ? `<button onclick="endStaff('${s.id}')" class="btn-ghost text-rose-600 border-rose-100">إنهاء الخدمة</button>`
+          : `<span class="pill bg-paper-100 text-ink-500">خارج الخدمة</span>`}
+      </div>
+    </div>`).join('');
+}
+
+async function addStaff(){
+  const full_name=s_n.value.trim(), monthly_salary=Number(s_s.value), err=document.getElementById('s_err');
+  err.classList.add('hidden');
+  if(!full_name||!monthly_salary){ err.textContent='الاسم والراتب مطلوبان.'; err.classList.remove('hidden'); return; }
+  const {error}=await db.from('employees').insert({ full_name, role:s_r.value, monthly_salary,
+    building_name:s_b.value||null, phone:s_p.value.trim()||null, hire_date:s_h.value||null });
+  if(error){ err.textContent='تعذّرت الإضافة. حاول مرة أخرى.'; err.classList.remove('hidden'); return; }
+  staffView();
+}
+
+async function endStaff(id){
+  if(!confirm('إنهاء خدمة هذا العامل؟ سيتوقف احتساب راتبه في الرواتب القادمة.')) return;
+  await db.from('employees').update({status:'inactive'}).eq('id',id);
+  staffView();
+}
+
+async function runPayroll(){
+  const period=today().slice(0,7);
+  const active=staff.filter(s=>s.status==='active');
+  if(!active.length) return alert('لا عمال على رأس العمل.');
+  const rows=active.map(s=>({ building_name:s.building_name, category:'salaries', amount:s.monthly_salary,
+    expense_date:today(), source:'salary', period, ref_id:s.id, notes:`راتب ${s.full_name} — ${MONTHS[new Date().getMonth()]}` }));
+  const {error}=await db.from('expenses').insert(rows);
+  if(error) return alert('تعذّر التسجيل. حاول مرة أخرى.');
+  staffView();
+}
+
 /* ───── العقود ───── */
 async function leasesView(){
   const m=document.getElementById('main');
@@ -529,7 +752,7 @@ async function endLease(id,unitId){
 async function unitsView(){
   const m=document.getElementById('main');
   m.innerHTML=head('الوحدات','الوحدات وأرقام عدادات الكهرباء والمياه');
-  await Promise.all([load.units(),load.readings()]);
+  await Promise.all([load.units(),load.readings(),load.expenses()]);
   const occ=units.filter(u=>u.status==='occupied').length, rate=units.length?Math.round(occ/units.length*100):0;
   m.innerHTML+=`
   <div class="fade">
@@ -577,6 +800,8 @@ function renderUnits(){
         ${meterCell('الكهرباء',u.electricity_meter,e)}
         ${meterCell('المياه',u.water_meter,w)}
       </div>
+      ${(()=>{ const spent=expenses.filter(x=>x.unit_id===u.id&&x.expense_date.startsWith(YEAR)).reduce((s,x)=>s+Number(x.amount),0);
+        return spent?`<p class="text-sm text-amber-600 mt-3 font-semibold">مصاريف صيانة ${YEAR}: <span class="num">${money(spent)}</span> ر.س</p>`:''; })()}
       <button onclick="openReading('${u.id}')" class="btn-ghost mt-3 text-teal-700 border-teal-100">تسجيل قراءة عداد</button>
     </div>`;}).join('');
 }
