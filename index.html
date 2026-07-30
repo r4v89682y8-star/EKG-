@@ -752,7 +752,7 @@ async function endLease(id,unitId){
 async function unitsView(){
   const m=document.getElementById('main');
   m.innerHTML=head('الوحدات','الوحدات وأرقام عدادات الكهرباء والمياه');
-  await Promise.all([load.units(),load.readings(),load.expenses()]);
+  await Promise.all([load.units(),load.readings(),load.expenses(),load.leases()]);
   const occ=units.filter(u=>u.status==='occupied').length, rate=units.length?Math.round(occ/units.length*100):0;
   m.innerHTML+=`
   <div class="fade">
@@ -802,7 +802,10 @@ function renderUnits(){
       </div>
       ${(()=>{ const spent=expenses.filter(x=>x.unit_id===u.id&&x.expense_date.startsWith(YEAR)).reduce((s,x)=>s+Number(x.amount),0);
         return spent?`<p class="text-sm text-amber-600 mt-3 font-semibold">مصاريف صيانة ${YEAR}: <span class="num">${money(spent)}</span> ر.س</p>`:''; })()}
-      <button onclick="openReading('${u.id}')" class="btn-ghost mt-3 text-teal-700 border-teal-100">تسجيل قراءة عداد</button>
+      <div class="flex gap-2 mt-3">
+        <button onclick="openReading('${u.id}')" class="btn-ghost text-teal-700 border-teal-100">تسجيل قراءة عداد</button>
+        <button onclick="openUnitEdit('${u.id}')" class="btn-ghost">تعديل بيانات الوحدة</button>
+      </div>
     </div>`;}).join('');
 }
 const meterCell=(label,num,last)=>`
@@ -821,6 +824,61 @@ async function addUnit(){
   if(error){ err.textContent='تعذّرت الإضافة. حاول مرة أخرى.'; err.classList.remove('hidden'); return; }
   unitsView();
 }
+function openUnitEdit(id){
+  const u=units.find(x=>x.id===id);
+  const w=document.createElement('div'); w.id='modal'; w.className='fixed inset-0 z-40 grid place-items-center p-4 overflow-y-auto';
+  w.innerHTML=`<div class="absolute inset-0 bg-ink-900/45" onclick="closeModal()"></div>
+  <div class="card relative w-full max-w-md p-6 fade my-8">
+    <h3 class="font-bold text-xl">تعديل بيانات الوحدة</h3>
+    <p class="text-ink-500 text-sm mt-1 mb-5">${u.building_name} — وحدة ${u.unit_number}</p>
+    <div class="grid grid-cols-2 gap-3">
+      <div><label class="eyebrow block mb-2">المبنى</label><input id="ed_b" class="field" value="${u.building_name||''}"></div>
+      <div><label class="eyebrow block mb-2">رقم الوحدة</label><input id="ed_n" class="field" value="${u.unit_number||''}"></div>
+      <div><label class="eyebrow block mb-2">المساحة (م²)</label><input id="ed_a" type="number" class="field" value="${u.area_sqm??''}"></div>
+      <div><label class="eyebrow block mb-2">الإيجار السنوي (ر.س)</label><input id="ed_r" type="number" class="field" value="${u.base_rent??''}"></div>
+      <div><label class="eyebrow block mb-2">عداد الكهرباء</label><input id="ed_e" class="field" dir="ltr" value="${u.electricity_meter||''}"></div>
+      <div><label class="eyebrow block mb-2">عداد المياه</label><input id="ed_w" class="field" dir="ltr" value="${u.water_meter||''}"></div>
+      <div class="col-span-2"><label class="eyebrow block mb-2">الحالة</label>
+        <select id="ed_s" class="field">
+          <option value="vacant" ${u.status==='vacant'?'selected':''}>شاغرة</option>
+          <option value="occupied" ${u.status==='occupied'?'selected':''}>مؤجّرة</option>
+          <option value="maintenance" ${u.status==='maintenance'?'selected':''}>تحت الصيانة</option>
+        </select>
+        <p class="text-xs text-ink-500 mt-1.5">الحالة تتغيّر تلقائيًا مع العقود — عدّلها يدويًا فقط عند الحاجة.</p>
+      </div>
+    </div>
+    <p id="ed_err" class="text-rose-600 text-sm mt-3 hidden"></p>
+    <div class="flex gap-2 mt-5">
+      <button onclick="saveUnitEdit('${u.id}')" class="btn-primary flex-1">حفظ التعديلات</button>
+      <button onclick="closeModal()" class="btn-ghost px-4">إلغاء</button>
+    </div>
+    <button onclick="deleteUnit('${u.id}')" class="text-sm text-rose-600 mt-4 w-full">حذف الوحدة</button>
+  </div>`;
+  document.body.appendChild(w);
+}
+
+async function saveUnitEdit(id){
+  const building_name=ed_b.value.trim(), unit_number=ed_n.value.trim(),
+        base_rent=Number(ed_r.value), err=document.getElementById('ed_err');
+  err.classList.add('hidden');
+  if(!building_name||!unit_number||!base_rent){ err.textContent='المبنى ورقم الوحدة والإيجار مطلوبة.'; err.classList.remove('hidden'); return; }
+  const {error}=await db.from('units').update({ building_name, unit_number, base_rent,
+    area_sqm: ed_a.value?Number(ed_a.value):null,
+    electricity_meter: ed_e.value.trim()||null, water_meter: ed_w.value.trim()||null,
+    status: ed_s.value }).eq('id',id);
+  if(error){ err.textContent='تعذّر الحفظ. حاول مرة أخرى.'; err.classList.remove('hidden'); return; }
+  closeModal(); unitsView();
+}
+
+async function deleteUnit(id){
+  const linked=leases.filter(l=>l.unit_id===id).length;
+  if(linked) return alert('لا يمكن حذف وحدة مرتبطة بعقود. أنهِ عقودها أولاً.');
+  if(!confirm('حذف هذه الوحدة نهائيًا؟')) return;
+  const {error}=await db.from('units').delete().eq('id',id);
+  if(error) return alert('تعذّر الحذف — قد تكون الوحدة مرتبطة بسجلات أخرى.');
+  closeModal(); unitsView();
+}
+
 function openReading(unitId){
   const u=units.find(x=>x.id===unitId);
   const w=document.createElement('div'); w.id='modal'; w.className='fixed inset-0 z-40 grid place-items-center p-4';
