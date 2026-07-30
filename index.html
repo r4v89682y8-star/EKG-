@@ -23,25 +23,45 @@ tailwind.config = { theme:{ extend:{
 <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
 <style>
   html { font-size:17px; }
-  body { font-family:'IBM Plex Sans Arabic',system-ui,sans-serif; background:#F6F8F9; color:#0E1621; }
-  h1,h2,h3,.display { font-family:'Readex Pro',system-ui,sans-serif; letter-spacing:-.01em; }
+  body { font-family:'IBM Plex Sans Arabic',system-ui,sans-serif; color:#0E1621;
+         background:
+           radial-gradient(1100px 480px at 88% -8%, #E4F2ED 0%, transparent 62%),
+           radial-gradient(900px 420px at 4% 4%, #F2EDE3 0%, transparent 55%),
+           #F6F8F9;
+         background-attachment:fixed; }
+  h1,h2,h3,.display { font-family:'Readex Pro',system-ui,sans-serif; letter-spacing:-.015em; }
   .num { font-family:Rubik,system-ui,sans-serif; font-feature-settings:'tnum'; direction:ltr; display:inline-block; }
-  .field { width:100%; border:1px solid #DFE4E8; background:#fff; border-radius:.7rem; padding:.65rem .8rem; font-size:1rem; font-family:inherit; }
-  .field:focus { outline:2px solid #137A65; outline-offset:1px; border-color:#137A65; }
-  .btn-primary { background:#0E5B4C; color:#fff; border-radius:.7rem; padding:.7rem 1.25rem; font-weight:600; font-size:1rem; font-family:'Readex Pro',sans-serif; }
-  .btn-primary:hover { background:#137A65; }
-  .btn-ghost { border:1px solid #DFE4E8; background:#fff; border-radius:.6rem; padding:.4rem .8rem; font-size:.85rem; }
-  .btn-ghost:hover { background:#F6F8F9; }
-  .card { background:#fff; border:1px solid #EDF0F2; border-radius:1rem; box-shadow:0 1px 2px rgba(14,22,33,.04),0 6px 20px rgba(14,22,33,.05); }
-  .eyebrow { font-size:.75rem; letter-spacing:.05em; color:#6C7683; font-weight:600; }
-  .navlink { display:flex; align-items:center; gap:.65rem; padding:.68rem .85rem; border-radius:.7rem; font-size:1rem; color:#39434F; width:100%; text-align:right; font-family:'Readex Pro',sans-serif; }
+  .field { width:100%; border:1px solid #DFE4E8; background:#fff; border-radius:.7rem; padding:.65rem .8rem; font-size:1rem; font-family:inherit; transition:border-color .15s,box-shadow .15s; }
+  .field:hover { border-color:#C7D0D6; }
+  .field:focus { outline:none; border-color:#137A65; box-shadow:0 0 0 3px rgba(19,122,101,.13); }
+  .btn-primary { background:linear-gradient(135deg,#0E5B4C,#137A65); color:#fff; border-radius:.7rem; padding:.7rem 1.25rem;
+                 font-weight:600; font-size:1rem; font-family:'Readex Pro',sans-serif;
+                 box-shadow:0 1px 2px rgba(8,58,49,.2),0 6px 16px rgba(8,58,49,.16); transition:transform .12s,box-shadow .2s,filter .2s; }
+  .btn-primary:hover { filter:brightness(1.07); box-shadow:0 2px 4px rgba(8,58,49,.22),0 10px 24px rgba(8,58,49,.2); }
+  .btn-primary:active { transform:translateY(1px); }
+  .btn-primary:disabled { opacity:.6; box-shadow:none; }
+  .btn-ghost { border:1px solid #DFE4E8; background:#fff; border-radius:.6rem; padding:.4rem .8rem; font-size:.85rem; transition:background .15s,border-color .15s; }
+  .btn-ghost:hover { background:#F6F8F9; border-color:#C7D0D6; }
+  .card { background:#fff; border:1px solid rgba(14,22,33,.06); border-radius:1.1rem;
+          box-shadow:0 1px 2px rgba(14,22,33,.04),0 8px 24px -6px rgba(14,22,33,.07); transition:box-shadow .25s,transform .2s; }
+  .eyebrow { font-size:.75rem; letter-spacing:.06em; color:#6C7683; font-weight:600; }
+  .navlink { display:flex; align-items:center; gap:.65rem; padding:.68rem .85rem; border-radius:.7rem; font-size:1rem; color:#39434F; width:100%; text-align:right; font-family:'Readex Pro',sans-serif; transition:background .15s,color .15s; }
   .navlink:hover { background:#EDF0F2; }
-  .navlink.on { background:#083A31; color:#fff; }
+  .navlink.on { background:linear-gradient(135deg,#083A31,#0E5B4C); color:#fff; box-shadow:0 4px 14px -4px rgba(8,58,49,.5); }
   .pill { padding:.15rem .55rem; border-radius:.45rem; font-size:.78rem; font-weight:600; }
-  th { font-size:.8rem; color:#6C7683; font-weight:600; text-align:right; padding:.6rem .5rem; }
-  td { padding:.7rem .5rem; font-size:.92rem; border-top:1px solid #EDF0F2; }
+  th { font-size:.8rem; color:#6C7683; font-weight:600; text-align:right; padding:.65rem .5rem; border-bottom:1px solid #EDF0F2; }
+  td { padding:.75rem .5rem; font-size:.92rem; border-top:1px solid #EDF0F2; }
+  tbody tr { transition:background .15s; }
+  tbody tr:hover { background:#FAFBFC; }
+  summary { list-style:none; } summary::-webkit-details-marker { display:none; }
+  summary::before { content:'+'; display:inline-grid; place-items:center; width:1.4rem; height:1.4rem; margin-left:.5rem;
+                    border-radius:.45rem; background:#DCEFE9; color:#0E5B4C; font-weight:700; font-size:1rem; transition:transform .2s; }
+  details[open] summary::before { content:'−'; transform:rotate(180deg); }
   *:focus-visible { outline:2px solid #137A65; outline-offset:2px; }
-  @media (prefers-reduced-motion:no-preference){ .fade{animation:f .25s ease both} @keyframes f{from{opacity:0;transform:translateY(5px)}to{opacity:1}} }
+  @media (prefers-reduced-motion:no-preference){
+    .card:hover { box-shadow:0 2px 4px rgba(14,22,33,.05),0 14px 32px -8px rgba(14,22,33,.1); }
+    .fade{animation:f .3s cubic-bezier(.22,1,.36,1) both} @keyframes f{from{opacity:0;transform:translateY(6px)}to{opacity:1}}
+  }
 </style>
 </head>
 <body>
@@ -51,7 +71,7 @@ tailwind.config = { theme:{ extend:{
   const SUPABASE_KEY = "sb_publishable_26WQJ1wSFyt3eNDdkj2yyw_RwYDK6yf";
   const BRAND = "عُمران";              // ← اسم النظام، غيّره من هنا
   const BRAND_SUB = "إدارة الأملاك";
-  const VERSION = "v7";                // للتأكد من أن النسخة المنشورة محدّثة
+  const VERSION = "v8";                // للتأكد من أن النسخة المنشورة محدّثة
 </script>
 
 <div id="app"></div>
@@ -74,8 +94,42 @@ const TABS = [
 
 const money = n => Number(n||0).toLocaleString('en-US',{maximumFractionDigits:0});
 const today = () => new Date().toISOString().slice(0,10);
-const YEAR  = String(new Date().getFullYear());
+let YR = String(new Date().getFullYear());
+const THIS_YEAR = String(new Date().getFullYear());
+function setYear(y){ YR=y; route(); }
 const MONTHS = ['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
+
+const yearPicker = () => {
+  const y=Number(THIS_YEAR), list=[y+1,y,y-1,y-2,y-3];
+  return `<div class="inline-flex items-center gap-1 bg-white border border-paper-200 rounded-xl p-1">
+    ${list.map(v=>`<button onclick="setYear('${v}')" class="px-3 py-1.5 rounded-lg text-sm ${String(v)===YR?'bg-teal-900 text-white font-semibold':'text-ink-500 hover:bg-paper-50'}"><span class="num">${v}</span></button>`).join('')}
+  </div>`;
+};
+
+/** مجاميع سنة بعينها — للمقارنة بين السنوات */
+function yearTotals(y){
+  const p=payments.filter(x=>x.due_date.startsWith(y));
+  const e=expenses.filter(x=>x.expense_date.startsWith(y));
+  const contracted=sumAmt(p), collected=sumPaid(p.filter(x=>x.status==='paid'));
+  const exp=e.reduce((s,x)=>s+Number(x.amount),0);
+  return { contracted, collected, exp, net:collected-exp, rate:contracted?Math.round(collected/contracted*100):0 };
+}
+const delta = (now,prev) => {
+  if(!prev) return '';
+  const d=Math.round((now-prev)/Math.abs(prev)*100);
+  if(!isFinite(d)||d===0) return '';
+  return `<span class="text-xs font-bold ${d>0?'text-teal-600':'text-rose-600'}">${d>0?'▲':'▼'}<span class="num">${Math.abs(d)}</span>%</span>`;
+};
+
+/** حارس ضد الضغط المزدوج على أزرار الحفظ */
+const busy=new Set();
+async function once(key,btn,fn){
+  if(busy.has(key)) return;
+  busy.add(key);
+  const el=btn&&document.activeElement; const label=el?.textContent;
+  if(el){ el.disabled=true; el.textContent='جارٍ الحفظ…'; }
+  try{ await fn(); } finally { busy.delete(key); if(el&&document.contains(el)){ el.disabled=false; el.textContent=label; } }
+}
 
 /* ───── auth ───── */
 async function init(){ const {data:{session}} = await db.auth.getSession(); user=session?.user||null; paint(); }
@@ -115,7 +169,7 @@ const logout = () => db.auth.signOut();
 function shell(){
   app.innerHTML=`
   <div class="flex min-h-screen">
-    <aside class="hidden lg:flex flex-col w-64 shrink-0 bg-white border-l border-paper-100 p-4">
+    <aside class="hidden lg:flex flex-col w-64 shrink-0 bg-white/85 backdrop-blur border-l border-paper-100 p-4">
       ${brandBlock()}
       <nav class="space-y-1 mt-7">${TABS.map(navBtn).join('')}</nav>
       <button onclick="logout()" class="navlink mt-auto text-ink-500 text-sm">تسجيل الخروج</button>
@@ -172,11 +226,11 @@ async function dashView(){
   await Promise.all([load.units(),load.leases(),load.payments(),load.expenses()]);
 
   const t=today();
-  const yearPays = payments.filter(p=>p.due_date.startsWith(YEAR));
+  const yearPays = payments.filter(p=>p.due_date.startsWith(YR));
   const collected = sumPaid(yearPays.filter(p=>p.status==='paid'));
   const overdue   = sumAmt(yearPays.filter(p=>p.status==='pending' && p.due_date<t));
   const contracted= sumAmt(yearPays);
-  const yearExp   = expenses.filter(e=>e.expense_date.startsWith(YEAR));
+  const yearExp   = expenses.filter(e=>e.expense_date.startsWith(YR));
   const expTotal  = yearExp.reduce((s,e)=>s+Number(e.amount),0);
   const net       = collected-expTotal;
   const occ       = units.filter(u=>u.status==='occupied').length;
@@ -185,7 +239,7 @@ async function dashView(){
 
   // الخطة السنوية: متوقع مقابل محصّل لكل شهر
   const plan = MONTHS.map((label,i)=>{
-    const key = `${YEAR}-${String(i+1).padStart(2,'0')}`;
+    const key = `${YR}-${String(i+1).padStart(2,'0')}`;
     const rows = payments.filter(p=>p.due_date.startsWith(key));
     return { label, expected:sumAmt(rows), collected:sumPaid(rows.filter(p=>p.status==='paid')) };
   });
@@ -195,7 +249,7 @@ async function dashView(){
   const buildings = [...new Set(units.map(u=>u.building_name))].map(b=>{
     const bu = units.filter(u=>u.building_name===b);
     const ids = bu.map(u=>u.id);
-    const bp = payments.filter(p=>ids.includes(p.leases?.unit_id) && p.due_date.startsWith(YEAR));
+    const bp = payments.filter(p=>ids.includes(p.leases?.unit_id) && p.due_date.startsWith(YR));
     return {
       name:b, total:bu.length, occupied:bu.filter(u=>u.status==='occupied').length,
       contracted:sumAmt(bp), collected:sumPaid(bp.filter(p=>p.status==='paid')),
@@ -204,13 +258,19 @@ async function dashView(){
     };
   });
 
-  m.innerHTML=head('لوحة المالك',`أداء المحفظة لعام ${YEAR}`)+`
+  const cur=yearTotals(YR), prev=yearTotals(String(Number(YR)-1));
+
+  m.innerHTML=`
+  <div class="mb-7 flex flex-wrap items-end justify-between gap-3">
+    <div><h1 class="text-2xl font-bold">لوحة المالك</h1><p class="text-ink-500 mt-1">أداء المحفظة لسنة <span class="num">${YR}</span></p></div>
+    ${yearPicker()}
+  </div>
   <div class="fade space-y-6">
     <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
-      ${stat('الإيراد المتعاقد',contracted,'كامل السنة','ink-900')}
-      ${stat('المحصّل',collected,rateColl+'% من المتعاقد','teal-700')}
-      ${stat('المتأخرات',overdue,'مستحقة ولم تُسدد','rose-600')}
-      ${stat('صافي التشغيل',net,'محصّل − مصروفات',net>=0?'teal-700':'rose-600')}
+      ${stat('الإيراد المتعاقد',contracted,'كامل السنة','ink-900',delta(cur.contracted,prev.contracted))}
+      ${stat('المحصّل',collected,rateColl+'% من المتعاقد','teal-700',delta(cur.collected,prev.collected))}
+      ${stat('المتأخرات',overdue,'مستحقة ولم تُسدد','rose-600','')}
+      ${stat('صافي التشغيل',net,'محصّل − مصروفات',net>=0?'teal-700':'rose-600',delta(cur.net,prev.net))}
     </div>
 
     <div class="grid lg:grid-cols-3 gap-3">
@@ -234,7 +294,7 @@ async function dashView(){
 
     <div class="card p-5">
       <div class="flex items-baseline justify-between mb-5">
-        <h2 class="font-bold text-lg">الخطة السنوية ${YEAR}</h2>
+        <h2 class="font-bold text-lg">الخطة السنوية ${YR}</h2>
         <p class="text-xs text-ink-500">■ متوقع &nbsp; <span class="text-teal-700">■</span> محصّل</p>
       </div>
       <div class="flex items-end gap-1.5 h-40" dir="rtl">
@@ -247,6 +307,24 @@ async function dashView(){
           </div>`).join('')}
       </div>
     </div>
+
+    ${(()=>{ const ys=[...new Set([...payments.map(p=>p.due_date.slice(0,4)),...expenses.map(e=>e.expense_date.slice(0,4))])].sort().reverse();
+      return ys.length>1?`
+      <div class="card p-5 overflow-x-auto">
+        <h2 class="font-bold text-lg mb-4">الأداء عبر السنوات</h2>
+        <table class="w-full min-w-[520px]">
+          <thead><tr><th>السنة</th><th>متعاقد</th><th>محصّل</th><th>نسبة التحصيل</th><th>مصروفات</th><th>الصافي</th></tr></thead>
+          <tbody>${ys.map(y=>{ const t=yearTotals(y); return `
+            <tr class="${y===YR?'bg-teal-100/40':''}">
+              <td class="font-bold"><span class="num">${y}</span></td>
+              <td><span class="num">${money(t.contracted)}</span></td>
+              <td class="text-teal-700"><span class="num">${money(t.collected)}</span></td>
+              <td><span class="num">${t.rate}</span>%</td>
+              <td class="text-amber-600"><span class="num">${money(t.exp)}</span></td>
+              <td class="font-semibold ${t.net<0?'text-rose-600':''}"><span class="num">${money(t.net)}</span></td>
+            </tr>`; }).join('')}</tbody>
+        </table>
+      </div>`:''; })()}
 
     ${buildings.length?`
     <div class="card p-5 overflow-x-auto">
@@ -267,9 +345,9 @@ async function dashView(){
     </div>`:''}
   </div>`;
 }
-const stat=(label,val,meta,tone)=>`
+const stat=(label,val,meta,tone,badge='')=>`
   <div class="card p-5">
-    <p class="eyebrow">${label}</p>
+    <div class="flex items-center justify-between gap-2"><p class="eyebrow">${label}</p>${badge}</div>
     <p class="text-2xl font-bold display mt-2 text-${tone}"><span class="num">${money(val)}</span> <span class="text-xs font-medium text-ink-500">ر.س</span></p>
     <p class="text-xs text-ink-500 mt-1.5">${meta}</p>
   </div>`;
@@ -277,12 +355,15 @@ const stat=(label,val,meta,tone)=>`
 /* ───── المالية ───── */
 async function financeView(){
   const m=document.getElementById('main');
-  m.innerHTML=head('المالية',`الإيرادات والمصروفات شهريًا لعام ${YEAR}`);
+  m.innerHTML=`<div class="mb-7 flex flex-wrap items-end justify-between gap-3">
+    <div><h1 class="text-2xl font-bold">المالية</h1><p class="text-ink-500 mt-1">الإيرادات والمصروفات شهريًا لسنة <span class="num">${YR}</span></p></div>
+    ${yearPicker()}
+  </div>`;
   await Promise.all([load.payments(),load.expenses(),load.units()]);
   const bl=[...new Set(units.map(u=>u.building_name))];
 
   const rows = MONTHS.map((label,i)=>{
-    const key=`${YEAR}-${String(i+1).padStart(2,'0')}`;
+    const key=`${YR}-${String(i+1).padStart(2,'0')}`;
     const p=payments.filter(x=>x.due_date.startsWith(key));
     const rev=sumPaid(p.filter(x=>x.status==='paid'));
     const exp=expenses.filter(e=>e.expense_date.startsWith(key)).reduce((s,e)=>s+Number(e.amount),0);
@@ -679,6 +760,7 @@ function renderStaff(){
       <div class="flex flex-col items-end gap-1.5 shrink-0">
         <p class="font-bold"><span class="num">${money(s.monthly_salary)}</span> <span class="text-xs text-ink-500">ر.س/شهر</span></p>
         <div class="flex gap-1.5">
+          <button onclick="openStaffEdit('${s.id}')" class="btn-ghost">تعديل</button>
           ${s.status==='active'
             ? `<button onclick="endStaff('${s.id}')" class="btn-ghost">إنهاء الخدمة</button>`
             : `<span class="pill bg-paper-100 text-ink-500">خارج الخدمة</span>`}
@@ -702,6 +784,47 @@ async function endStaff(id){
   if(!confirm('إنهاء خدمة هذا العامل؟ سيتوقف احتساب راتبه في الرواتب القادمة.')) return;
   await db.from('employees').update({status:'inactive'}).eq('id',id);
   staffView();
+}
+
+function openStaffEdit(id){
+  const s=staff.find(x=>x.id===id);
+  const bl=[...new Set(units.map(u=>u.building_name))];
+  const w=document.createElement('div'); w.id='modal'; w.className='fixed inset-0 z-40 grid place-items-center p-4 overflow-y-auto';
+  w.innerHTML=`<div class="absolute inset-0 bg-ink-900/45" onclick="closeModal()"></div>
+  <div class="card relative w-full max-w-md p-6 fade my-8">
+    <h3 class="font-bold text-xl mb-5">تعديل بيانات العامل</h3>
+    <label class="eyebrow block mb-2">الاسم</label><input id="se_n" class="field mb-4" value="${s.full_name||''}">
+    <div class="grid grid-cols-2 gap-3">
+      <div><label class="eyebrow block mb-2">الوظيفة</label>
+        <select id="se_r" class="field">${Object.entries(ROLES).map(([k,v])=>`<option value="${k}" ${s.role===k?'selected':''}>${v}</option>`).join('')}</select></div>
+      <div><label class="eyebrow block mb-2">الراتب الشهري (ر.س)</label><input id="se_s" type="number" class="field" value="${s.monthly_salary??''}"></div>
+      <div><label class="eyebrow block mb-2">المبنى</label>
+        <select id="se_b" class="field"><option value="">غير مخصص</option>${bl.map(b=>`<option ${s.building_name===b?'selected':''}>${b}</option>`).join('')}</select></div>
+      <div><label class="eyebrow block mb-2">رقم الجوال</label><input id="se_p" class="field" dir="ltr" value="${s.phone||''}"></div>
+      <div><label class="eyebrow block mb-2">تاريخ المباشرة</label><input id="se_h" type="date" class="field" value="${s.hire_date||''}"></div>
+      <div><label class="eyebrow block mb-2">الحالة</label>
+        <select id="se_st" class="field">
+          <option value="active" ${s.status==='active'?'selected':''}>على رأس العمل</option>
+          <option value="inactive" ${s.status==='inactive'?'selected':''}>خارج الخدمة</option>
+        </select></div>
+    </div>
+    <p class="text-xs text-ink-500 mt-3">تعديل الراتب يسري على عمليات الصرف القادمة فقط، ولا يغيّر قيودًا صُرفت سابقًا.</p>
+    <p id="se_err" class="text-rose-600 text-sm mt-3 hidden"></p>
+    <div class="flex gap-2 mt-5">
+      <button onclick="saveStaffEdit('${s.id}')" class="btn-primary flex-1">حفظ التعديلات</button>
+      <button onclick="closeModal()" class="btn-ghost px-4">إلغاء</button>
+    </div>
+  </div>`;
+  document.body.appendChild(w);
+}
+async function saveStaffEdit(id){
+  const full_name=se_n.value.trim(), monthly_salary=Number(se_s.value), err=document.getElementById('se_err');
+  err.classList.add('hidden');
+  if(!full_name||!monthly_salary){ err.textContent='الاسم والراتب مطلوبان.'; err.classList.remove('hidden'); return; }
+  const {error}=await db.from('employees').update({ full_name, role:se_r.value, monthly_salary,
+    building_name:se_b.value||null, phone:se_p.value.trim()||null, hire_date:se_h.value||null, status:se_st.value }).eq('id',id);
+  if(error){ err.textContent='تعذّر الحفظ: '+error.message; err.classList.remove('hidden'); return; }
+  closeModal(); staffView();
 }
 
 async function deleteStaff(id){
@@ -789,21 +912,37 @@ function previewPlan(){
     : '';
 }
 
+let savingLease=false;
 async function addLease(){
+  if(savingLease) return;
+  const btn=document.activeElement;
   const tenant_id=l_tenant.value,unit_id=l_unit.value,start_date=l_start.value,end_date=l_end.value,
         annual=Number(l_rent.value),count=Number(l_count.value),err=document.getElementById('l_err');
   err.classList.add('hidden');
   const fail=m=>{err.textContent=m;err.classList.remove('hidden');};
   if(!tenant_id||!unit_id||!start_date||!end_date||!annual) return fail('أكمل كل الحقول قبل الحفظ.');
   if(new Date(end_date)<=new Date(start_date)) return fail('تاريخ النهاية يجب أن يكون بعد تاريخ البداية.');
-  const {data,error}=await db.from('leases').insert({
-    tenant_id,unit_id,start_date,end_date,status:'active',
-    annual_rent:annual, installments:count, monthly_rent:Math.round(annual/12)
-  }).select().single();
-  if(error) return fail('تعذّر حفظ العقد. حاول مرة أخرى.');
-  await db.from('units').update({status:'occupied'}).eq('id',unit_id);
-  await db.from('payments').insert(buildSchedule(data.id,start_date,end_date,annual,count));
-  go('collection');
+
+  savingLease=true;
+  if(btn){ btn.disabled=true; btn.textContent='جارٍ الحفظ…'; }
+  try{
+    // تحقق لحظي: لا عقدين ساريين على نفس الوحدة
+    const {data:clash}=await db.from('leases').select('id').eq('unit_id',unit_id).eq('status','active');
+    if(clash&&clash.length){ return fail('هذه الوحدة عليها عقد ساري بالفعل. حدّث الصفحة واختر وحدة أخرى.'); }
+
+    const {data,error}=await db.from('leases').insert({
+      tenant_id,unit_id,start_date,end_date,status:'active',
+      annual_rent:annual, installments:count, monthly_rent:Math.round(annual/12)
+    }).select().single();
+    if(error) return fail('تعذّر حفظ العقد: '+error.message);
+
+    await db.from('units').update({status:'occupied'}).eq('id',unit_id);
+    await db.from('payments').insert(buildSchedule(data.id,start_date,end_date,annual,count));
+    go('collection');
+  } finally {
+    savingLease=false;
+    if(btn&&document.contains(btn)){ btn.disabled=false; btn.textContent='حفظ العقد وتفعيله'; }
+  }
 }
 
 /** دفعة لكل قسط: المبلغ = الإيجار السنوي ÷ عدد الدفعات، والفاصل = ١٢ ÷ عدد الدفعات بالأشهر */
@@ -882,8 +1021,8 @@ function renderUnits(){
         ${meterCell('الكهرباء',u.electricity_meter,e)}
         ${meterCell('المياه',u.water_meter,w)}
       </div>
-      ${(()=>{ const spent=expenses.filter(x=>x.unit_id===u.id&&x.expense_date.startsWith(YEAR)).reduce((s,x)=>s+Number(x.amount),0);
-        return spent?`<p class="text-sm text-amber-600 mt-3 font-semibold">مصاريف صيانة ${YEAR}: <span class="num">${money(spent)}</span> ر.س</p>`:''; })()}
+      ${(()=>{ const spent=expenses.filter(x=>x.unit_id===u.id&&x.expense_date.startsWith(YR)).reduce((s,x)=>s+Number(x.amount),0);
+        return spent?`<p class="text-sm text-amber-600 mt-3 font-semibold">مصاريف صيانة ${YR}: <span class="num">${money(spent)}</span> ر.س</p>`:''; })()}
       <div class="flex gap-2 mt-3">
         <button onclick="openReading('${u.id}')" class="btn-ghost text-teal-700 border-teal-100">تسجيل قراءة عداد</button>
         <button onclick="openUnitEdit('${u.id}')" class="btn-ghost">تعديل بيانات الوحدة</button>
