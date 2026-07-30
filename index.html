@@ -3,58 +3,53 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>الديار — إدارة الأملاك</title>
+<title>عُمران — إدارة الأملاك</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=Rubik:wght@500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Readex+Pro:wght@400;500;600;700&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=Rubik:wght@500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.tailwindcss.com"></script>
 <script>
-tailwind.config = {
-  theme: {
-    extend: {
-      colors: {
-        ink:    { 900:'#101820', 700:'#38424E', 500:'#6B7684', 300:'#AEB6C0' },
-        paper:  { 0:'#FFFFFF', 50:'#F7F8FA', 100:'#EFF1F4', 200:'#E2E6EB' },
-        teal:   { 900:'#0A3D33', 700:'#0F5C4E', 600:'#147A66', 100:'#DFF0EB' },
-        amber:  { 600:'#B5761B', 100:'#FBEFD9' },
-        rose:   { 600:'#B03A3A', 100:'#FBE3E3' },
-      },
-      fontFamily: {
-        sans: ['"IBM Plex Sans Arabic"','system-ui','sans-serif'],
-        num:  ['Rubik','system-ui','sans-serif'],
-      },
-      boxShadow: {
-        card: '0 1px 2px rgba(16,24,32,.04), 0 4px 16px rgba(16,24,32,.05)',
-      }
-    }
-  }
-}
+tailwind.config = { theme:{ extend:{
+  colors:{
+    ink:{900:'#0E1621',700:'#39434F',500:'#6C7683',300:'#AAB2BC'},
+    paper:{0:'#FFFFFF',50:'#F6F8F9',100:'#EDF0F2',200:'#DFE4E8'},
+    teal:{900:'#083A31',700:'#0E5B4C',600:'#137A65',300:'#7FC4B2',100:'#DCEFE9'},
+    amber:{600:'#A97015',100:'#FAEDD6'},
+    rose:{600:'#A93838',100:'#FAE1E1'},
+  },
+  fontFamily:{ sans:['"IBM Plex Sans Arabic"','system-ui','sans-serif'], display:['"Readex Pro"','system-ui','sans-serif'], num:['Rubik','system-ui','sans-serif'] },
+}}}
 </script>
 <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
 <style>
-  body { font-family:'IBM Plex Sans Arabic',system-ui,sans-serif; background:#F7F8FA; color:#101820; }
+  html { font-size:17px; }
+  body { font-family:'IBM Plex Sans Arabic',system-ui,sans-serif; background:#F6F8F9; color:#0E1621; }
+  h1,h2,h3,.display { font-family:'Readex Pro',system-ui,sans-serif; letter-spacing:-.01em; }
   .num { font-family:Rubik,system-ui,sans-serif; font-feature-settings:'tnum'; direction:ltr; display:inline-block; }
-  .field { width:100%; border:1px solid #E2E6EB; background:#fff; border-radius:.625rem; padding:.6rem .75rem; font-size:.9rem; }
-  .field:focus { outline:2px solid #147A66; outline-offset:1px; border-color:#147A66; }
-  .btn-primary { background:#0F5C4E; color:#fff; border-radius:.625rem; padding:.6rem 1.1rem; font-weight:600; font-size:.9rem; }
-  .btn-primary:hover { background:#147A66; }
-  .btn-ghost { border:1px solid #E2E6EB; background:#fff; border-radius:.625rem; padding:.45rem .8rem; font-size:.8rem; }
-  .btn-ghost:hover { background:#F7F8FA; }
-  .card { background:#fff; border:1px solid #EFF1F4; border-radius:.875rem; box-shadow:0 1px 2px rgba(16,24,32,.04), 0 4px 16px rgba(16,24,32,.05); }
-  .eyebrow { font-size:.68rem; letter-spacing:.08em; color:#6B7684; font-weight:600; }
-  .navlink { display:flex; align-items:center; gap:.6rem; padding:.6rem .8rem; border-radius:.625rem; font-size:.92rem; color:#38424E; width:100%; text-align:right; }
-  .navlink:hover { background:#EFF1F4; }
-  .navlink.on { background:#0A3D33; color:#fff; font-weight:600; }
-  *:focus-visible { outline:2px solid #147A66; outline-offset:2px; }
-  @media (prefers-reduced-motion:no-preference){ .fade{ animation:f .25s ease both } @keyframes f{from{opacity:0;transform:translateY(4px)}to{opacity:1}} }
+  .field { width:100%; border:1px solid #DFE4E8; background:#fff; border-radius:.7rem; padding:.65rem .8rem; font-size:1rem; font-family:inherit; }
+  .field:focus { outline:2px solid #137A65; outline-offset:1px; border-color:#137A65; }
+  .btn-primary { background:#0E5B4C; color:#fff; border-radius:.7rem; padding:.7rem 1.25rem; font-weight:600; font-size:1rem; font-family:'Readex Pro',sans-serif; }
+  .btn-primary:hover { background:#137A65; }
+  .btn-ghost { border:1px solid #DFE4E8; background:#fff; border-radius:.6rem; padding:.4rem .8rem; font-size:.85rem; }
+  .btn-ghost:hover { background:#F6F8F9; }
+  .card { background:#fff; border:1px solid #EDF0F2; border-radius:1rem; box-shadow:0 1px 2px rgba(14,22,33,.04),0 6px 20px rgba(14,22,33,.05); }
+  .eyebrow { font-size:.75rem; letter-spacing:.05em; color:#6C7683; font-weight:600; }
+  .navlink { display:flex; align-items:center; gap:.65rem; padding:.68rem .85rem; border-radius:.7rem; font-size:1rem; color:#39434F; width:100%; text-align:right; font-family:'Readex Pro',sans-serif; }
+  .navlink:hover { background:#EDF0F2; }
+  .navlink.on { background:#083A31; color:#fff; }
+  .pill { padding:.15rem .55rem; border-radius:.45rem; font-size:.78rem; font-weight:600; }
+  th { font-size:.8rem; color:#6C7683; font-weight:600; text-align:right; padding:.6rem .5rem; }
+  td { padding:.7rem .5rem; font-size:.92rem; border-top:1px solid #EDF0F2; }
+  *:focus-visible { outline:2px solid #137A65; outline-offset:2px; }
+  @media (prefers-reduced-motion:no-preference){ .fade{animation:f .25s ease both} @keyframes f{from{opacity:0;transform:translateY(5px)}to{opacity:1}} }
 </style>
 </head>
-<body class="min-h-screen">
+<body>
 
 <script>
   const SUPABASE_URL = "https://hyyvqcppamlmlhcmnsut.supabase.co";
   const SUPABASE_KEY = "sb_publishable_26WQJ1wSFyt3eNDdkj2yyw_RwYDK6yf";
-  const BRAND = "الديار";           // ← غيّر اسم النظام من هنا
+  const BRAND = "عُمران";              // ← اسم النظام، غيّره من هنا
   const BRAND_SUB = "إدارة الأملاك";
 </script>
 
@@ -63,438 +58,565 @@ tailwind.config = {
 <script>
 const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 const app = document.getElementById('app');
-let user = null, tab = 'collection', navOpen = false;
+let user=null, tab='dash', navOpen=false;
 
 const TABS = [
-  { id:'collection', label:'التحصيل',    icon:'M12 1v22M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6' },
+  { id:'dash',       label:'لوحة المالك', icon:'M3 13h4v8H3zM10 3h4v18h-4zM17 9h4v12h-4z' },
+  { id:'collection', label:'التحصيل',     icon:'M12 1v22M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6' },
+  { id:'finance',    label:'المالية',     icon:'M3 3v18h18M7 15l4-5 3 3 5-7' },
   { id:'leases',     label:'العقود',      icon:'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h7l5 5v11a2 2 0 01-2 2z' },
   { id:'units',      label:'الوحدات',     icon:'M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z' },
-  { id:'tenants',    label:'المستأجرون',  icon:'M17 20v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2M13 7a3.5 3.5 0 11-7 0 3.5 3.5 0 017 0M22 20v-2a4 4 0 00-3-3.87M16 3.13A4 4 0 0119 7' },
+  { id:'tenants',    label:'المستأجرون',  icon:'M17 20v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2M13 7a3.5 3.5 0 11-7 0 3.5 3.5 0 017 0M22 20v-2a4 4 0 00-3-3.87' },
 ];
 
 const money = n => Number(n||0).toLocaleString('en-US',{maximumFractionDigits:0});
 const today = () => new Date().toISOString().slice(0,10);
+const YEAR  = new Date().getFullYear();
+const MONTHS = ['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
 
-/* ───────────── auth ───────────── */
-async function init(){
-  const { data:{ session } } = await db.auth.getSession();
-  user = session?.user || null;
-  paint();
-}
-db.auth.onAuthStateChange((_e,s)=>{ user = s?.user || null; paint(); });
-
-function paint(){ user ? shell() : loginView(); }
+/* ───── auth ───── */
+async function init(){ const {data:{session}} = await db.auth.getSession(); user=session?.user||null; paint(); }
+db.auth.onAuthStateChange((_e,s)=>{ user=s?.user||null; paint(); });
+const paint = () => user ? shell() : loginView();
 
 function loginView(){
-  app.innerHTML = `
+  app.innerHTML=`
   <div class="min-h-screen grid place-items-center px-5">
     <div class="w-full max-w-sm fade">
-      <div class="text-center mb-7">
-        <div class="w-12 h-12 rounded-xl bg-teal-900 mx-auto grid place-items-center mb-4">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8"><path d="M3 21V9l9-6 9 6v12M9 21v-6h6v6"/></svg>
+      <div class="text-center mb-8">
+        <div class="w-14 h-14 rounded-2xl bg-teal-900 mx-auto grid place-items-center mb-4">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.7"><path d="M3 21V9l9-6 9 6v12M9 21v-6h6v6"/></svg>
         </div>
-        <h1 class="text-2xl font-bold">${BRAND}</h1>
-        <p class="text-ink-500 text-sm mt-1">${BRAND_SUB}</p>
+        <h1 class="text-3xl font-bold">${BRAND}</h1>
+        <p class="text-ink-500 mt-1">${BRAND_SUB}</p>
       </div>
-      <div class="card p-6">
-        <label class="eyebrow block mb-1.5">البريد الإلكتروني</label>
-        <input id="em" type="email" class="field mb-3.5" dir="ltr">
-        <label class="eyebrow block mb-1.5">كلمة السر</label>
-        <input id="pw" type="password" class="field mb-1" dir="ltr">
-        <p id="er" class="text-rose-600 text-xs mt-2.5 hidden"></p>
-        <button onclick="login()" class="btn-primary w-full mt-5">دخول</button>
+      <div class="card p-7">
+        <label class="eyebrow block mb-2">البريد الإلكتروني</label>
+        <input id="em" type="email" class="field mb-4" dir="ltr">
+        <label class="eyebrow block mb-2">كلمة السر</label>
+        <input id="pw" type="password" class="field" dir="ltr">
+        <p id="er" class="text-rose-600 text-sm mt-3 hidden"></p>
+        <button onclick="login()" class="btn-primary w-full mt-6">دخول</button>
       </div>
     </div>
   </div>`;
-  document.getElementById('pw').addEventListener('keydown', e => { if(e.key==='Enter') login(); });
+  pw.addEventListener('keydown',e=>{ if(e.key==='Enter') login(); });
 }
-
 async function login(){
-  const email = em.value.trim(), password = pw.value, box = document.getElementById('er');
-  const { error } = await db.auth.signInWithPassword({ email, password });
-  if(error){ box.textContent = 'البريد أو كلمة السر غير صحيحة. تأكد من بياناتك وحاول مرة أخرى.'; box.classList.remove('hidden'); }
+  const {error} = await db.auth.signInWithPassword({ email:em.value.trim(), password:pw.value });
+  if(error){ const b=document.getElementById('er'); b.textContent='البريد أو كلمة السر غير صحيحة.'; b.classList.remove('hidden'); }
 }
 const logout = () => db.auth.signOut();
 
-/* ───────────── shell ───────────── */
+/* ───── shell ───── */
 function shell(){
-  app.innerHTML = `
+  app.innerHTML=`
   <div class="flex min-h-screen">
     <aside class="hidden lg:flex flex-col w-64 shrink-0 bg-white border-l border-paper-100 p-4">
       ${brandBlock()}
-      <nav class="space-y-1 mt-6">${TABS.map(navBtn).join('')}</nav>
-      <button onclick="logout()" class="navlink mt-auto text-ink-500">تسجيل الخروج</button>
+      <nav class="space-y-1 mt-7">${TABS.map(navBtn).join('')}</nav>
+      <button onclick="logout()" class="navlink mt-auto text-ink-500 text-sm">تسجيل الخروج</button>
     </aside>
-
     <div class="flex-1 min-w-0">
-      <header class="lg:hidden sticky top-0 z-20 bg-white/90 backdrop-blur border-b border-paper-100 px-4 h-14 flex items-center justify-between">
-        <button onclick="toggleNav()" aria-label="القائمة">
-          <svg width="22" height="22" viewBox="0 0 24 24" stroke="#38424E" stroke-width="1.8" fill="none"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
-        </button>
-        <span class="font-bold">${BRAND}</span>
-        <button onclick="logout()" class="text-xs text-ink-500">خروج</button>
+      <header class="lg:hidden sticky top-0 z-20 bg-white/95 backdrop-blur border-b border-paper-100 px-4 h-14 flex items-center justify-between">
+        <button onclick="toggleNav()" aria-label="القائمة"><svg width="24" height="24" viewBox="0 0 24 24" stroke="#39434F" stroke-width="1.8" fill="none"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
+        <span class="font-bold display">${BRAND}</span>
+        <button onclick="logout()" class="text-sm text-ink-500">خروج</button>
       </header>
-
       <div id="drawer" class="hidden lg:hidden fixed inset-0 z-30">
-        <div class="absolute inset-0 bg-ink-900/40" onclick="toggleNav()"></div>
-        <div class="absolute top-0 right-0 h-full w-64 bg-white p-4 flex flex-col">
-          ${brandBlock()}
-          <nav class="space-y-1 mt-6">${TABS.map(navBtn).join('')}</nav>
-        </div>
+        <div class="absolute inset-0 bg-ink-900/45" onclick="toggleNav()"></div>
+        <div class="absolute top-0 right-0 h-full w-64 bg-white p-4">${brandBlock()}<nav class="space-y-1 mt-7">${TABS.map(navBtn).join('')}</nav></div>
       </div>
-
-      <main id="main" class="p-4 sm:p-6 lg:p-8 max-w-5xl"></main>
+      <main id="main" class="p-4 sm:p-6 lg:p-9 max-w-5xl"></main>
     </div>
   </div>`;
   route();
 }
-
 const brandBlock = () => `
   <div class="flex items-center gap-2.5">
-    <div class="w-9 h-9 rounded-lg bg-teal-900 grid place-items-center shrink-0">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8"><path d="M3 21V9l9-6 9 6v12M9 21v-6h6v6"/></svg>
+    <div class="w-10 h-10 rounded-xl bg-teal-900 grid place-items-center shrink-0">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.7"><path d="M3 21V9l9-6 9 6v12M9 21v-6h6v6"/></svg>
     </div>
-    <div class="leading-tight">
-      <p class="font-bold text-[.95rem]">${BRAND}</p>
-      <p class="text-[.7rem] text-ink-500">${BRAND_SUB}</p>
-    </div>
+    <div class="leading-tight"><p class="font-bold display">${BRAND}</p><p class="text-xs text-ink-500">${BRAND_SUB}</p></div>
   </div>`;
-
-const navBtn = t => `
-  <button onclick="go('${t.id}')" class="navlink ${tab===t.id?'on':''}">
-    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="${t.icon}"/></svg>
-    ${t.label}
-  </button>`;
-
+const navBtn = t => `<button onclick="go('${t.id}')" class="navlink ${tab===t.id?'on':''}">
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="${t.icon}"/></svg>${t.label}</button>`;
 function toggleNav(){ navOpen=!navOpen; document.getElementById('drawer').classList.toggle('hidden',!navOpen); }
 function go(t){ tab=t; navOpen=false; shell(); }
-function route(){
-  if(tab==='tenants')    tenantsView();
-  if(tab==='units')      unitsView();
-  if(tab==='leases')     leasesView();
-  if(tab==='collection') collectionView();
-}
-const head = (title,sub) => `<div class="mb-6"><h1 class="text-[1.35rem] font-bold">${title}</h1><p class="text-ink-500 text-sm mt-0.5">${sub}</p></div>`;
-const empty = m => `<div class="card p-10 text-center text-ink-500 text-sm">${m}</div>`;
+function route(){ ({dash:dashView,collection:collectionView,finance:financeView,leases:leasesView,units:unitsView,tenants:tenantsView})[tab](); }
+const head=(t,s)=>`<div class="mb-7"><h1 class="text-2xl font-bold">${t}</h1><p class="text-ink-500 mt-1">${s}</p></div>`;
+const empty=m=>`<div class="card p-10 text-center text-ink-500">${m}</div>`;
 
-/* ───────────── data ───────────── */
-let tenants=[], units=[], leases=[], payments=[];
+/* ───── data ───── */
+let tenants=[],units=[],leases=[],payments=[],expenses=[],readings=[];
 const load = {
-  tenants: async q => { let r=db.from('tenants').select('*').order('created_at',{ascending:false}); if(q) r=r.or(`full_name.ilike.%${q}%,phone.ilike.%${q}%`); tenants=(await r).data||[]; },
-  units:   async () => { units=(await db.from('units').select('*').order('building_name')).data||[]; },
-  leases:  async () => { leases=(await db.from('leases').select('*, tenants(full_name,phone), units(building_name,unit_number)').order('created_at',{ascending:false})).data||[]; },
-  payments:async () => { payments=(await db.from('payments').select('*, leases(monthly_rent, tenants(full_name), units(building_name,unit_number))').order('due_date')).data||[]; },
+  tenants: async q=>{ let r=db.from('tenants').select('*').order('created_at',{ascending:false}); if(q) r=r.or(`full_name.ilike.%${q}%,phone.ilike.%${q}%`); tenants=(await r).data||[]; },
+  units:   async ()=>{ units=(await db.from('units').select('*').order('building_name')).data||[]; },
+  leases:  async ()=>{ leases=(await db.from('leases').select('*, tenants(full_name,phone), units(building_name,unit_number)').order('created_at',{ascending:false})).data||[]; },
+  payments:async ()=>{ payments=(await db.from('payments').select('*, leases(unit_id, monthly_rent, tenants(full_name), units(building_name,unit_number))').order('due_date')).data||[]; },
+  expenses:async ()=>{ expenses=(await db.from('expenses').select('*').order('expense_date',{ascending:false})).data||[]; },
+  readings:async ()=>{ readings=(await db.from('meter_readings').select('*').order('reading_date',{ascending:false})).data||[]; },
 };
+const sumPaid = a => a.reduce((s,p)=>s+Number(p.paid_amount??p.amount),0);
+const sumAmt  = a => a.reduce((s,p)=>s+Number(p.amount),0);
 
-/* ───────────── التحصيل ───────────── */
+/* ───── لوحة المالك ───── */
+async function dashView(){
+  const m=document.getElementById('main');
+  m.innerHTML=head('لوحة المالك','صورة كاملة عن أداء المحفظة العقارية')+`<p class="text-ink-500">جارٍ التحميل…</p>`;
+  await Promise.all([load.units(),load.leases(),load.payments(),load.expenses()]);
+
+  const t=today();
+  const yearPays = payments.filter(p=>p.due_date.startsWith(YEAR));
+  const collected = sumPaid(yearPays.filter(p=>p.status==='paid'));
+  const overdue   = sumAmt(yearPays.filter(p=>p.status==='pending' && p.due_date<t));
+  const contracted= sumAmt(yearPays);
+  const yearExp   = expenses.filter(e=>e.expense_date.startsWith(YEAR));
+  const expTotal  = yearExp.reduce((s,e)=>s+Number(e.amount),0);
+  const net       = collected-expTotal;
+  const occ       = units.filter(u=>u.status==='occupied').length;
+  const rate      = units.length?Math.round(occ/units.length*100):0;
+  const rateColl  = contracted?Math.round(collected/contracted*100):0;
+
+  // الخطة السنوية: متوقع مقابل محصّل لكل شهر
+  const plan = MONTHS.map((label,i)=>{
+    const key = `${YEAR}-${String(i+1).padStart(2,'0')}`;
+    const rows = payments.filter(p=>p.due_date.startsWith(key));
+    return { label, expected:sumAmt(rows), collected:sumPaid(rows.filter(p=>p.status==='paid')) };
+  });
+  const peak = Math.max(1,...plan.map(p=>p.expected));
+
+  // أداء كل مبنى
+  const buildings = [...new Set(units.map(u=>u.building_name))].map(b=>{
+    const bu = units.filter(u=>u.building_name===b);
+    const ids = bu.map(u=>u.id);
+    const bp = payments.filter(p=>ids.includes(p.leases?.unit_id) && p.due_date.startsWith(YEAR));
+    return {
+      name:b, total:bu.length, occupied:bu.filter(u=>u.status==='occupied').length,
+      contracted:sumAmt(bp), collected:sumPaid(bp.filter(p=>p.status==='paid')),
+      overdue:sumAmt(bp.filter(p=>p.status==='pending'&&p.due_date<t)),
+      expenses:yearExp.filter(e=>e.building_name===b).reduce((s,e)=>s+Number(e.amount),0),
+    };
+  });
+
+  m.innerHTML=head('لوحة المالك',`أداء المحفظة لعام ${YEAR}`)+`
+  <div class="fade space-y-6">
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      ${stat('الإيراد المتعاقد',contracted,'كامل السنة','ink-900')}
+      ${stat('المحصّل',collected,rateColl+'% من المتعاقد','teal-700')}
+      ${stat('المتأخرات',overdue,'مستحقة ولم تُسدد','rose-600')}
+      ${stat('صافي التشغيل',net,'محصّل − مصروفات',net>=0?'teal-700':'rose-600')}
+    </div>
+
+    <div class="grid lg:grid-cols-3 gap-3">
+      <div class="card p-5">
+        <p class="eyebrow">الإشغال</p>
+        <p class="text-3xl font-bold display mt-2"><span class="num">${rate}</span>%</p>
+        <p class="text-sm text-ink-500 mt-1"><span class="num">${occ}</span> مؤجّرة من <span class="num">${units.length}</span></p>
+        <div class="flex gap-1 mt-4">${units.map(u=>`<span class="h-2.5 flex-1 rounded-full ${u.status==='occupied'?'bg-teal-700':'bg-paper-200'}"></span>`).join('')||'<span class="text-xs text-ink-300">لا وحدات</span>'}</div>
+      </div>
+      <div class="card p-5">
+        <p class="eyebrow">المصروفات التشغيلية</p>
+        <p class="text-3xl font-bold display mt-2 text-amber-600"><span class="num">${money(expTotal)}</span></p>
+        <p class="text-sm text-ink-500 mt-1">${collected?`<span class="num">${Math.round(expTotal/collected*100)}</span>% من المحصّل`:'—'}</p>
+      </div>
+      <div class="card p-5">
+        <p class="eyebrow">العقود السارية</p>
+        <p class="text-3xl font-bold display mt-2"><span class="num">${leases.filter(l=>l.status==='active').length}</span></p>
+        <p class="text-sm text-ink-500 mt-1">من <span class="num">${leases.length}</span> عقد مسجّل</p>
+      </div>
+    </div>
+
+    <div class="card p-5">
+      <div class="flex items-baseline justify-between mb-5">
+        <h2 class="font-bold text-lg">الخطة السنوية ${YEAR}</h2>
+        <p class="text-xs text-ink-500">■ متوقع &nbsp; <span class="text-teal-700">■</span> محصّل</p>
+      </div>
+      <div class="flex items-end gap-1.5 h-40" dir="rtl">
+        ${plan.map(p=>`
+          <div class="flex-1 flex flex-col items-center gap-1.5 h-full justify-end" title="${p.label}: متوقع ${money(p.expected)} · محصّل ${money(p.collected)}">
+            <div class="w-full relative bg-paper-100 rounded-t" style="height:${Math.max(3,p.expected/peak*100)}%">
+              <div class="absolute bottom-0 w-full bg-teal-700 rounded-t" style="height:${p.expected?p.collected/p.expected*100:0}%"></div>
+            </div>
+            <span class="text-[.62rem] text-ink-500 whitespace-nowrap">${p.label.slice(0,3)}</span>
+          </div>`).join('')}
+      </div>
+    </div>
+
+    ${buildings.length?`
+    <div class="card p-5 overflow-x-auto">
+      <h2 class="font-bold text-lg mb-4">أداء المباني</h2>
+      <table class="w-full min-w-[560px]">
+        <thead><tr><th>المبنى</th><th>الإشغال</th><th>متعاقد</th><th>محصّل</th><th>متأخر</th><th>مصروفات</th><th>الصافي</th></tr></thead>
+        <tbody>${buildings.map(b=>`
+          <tr>
+            <td class="font-semibold">${b.name}</td>
+            <td><span class="num">${b.occupied}</span>/<span class="num">${b.total}</span></td>
+            <td><span class="num">${money(b.contracted)}</span></td>
+            <td class="text-teal-700"><span class="num">${money(b.collected)}</span></td>
+            <td class="${b.overdue?'text-rose-600':''}"><span class="num">${money(b.overdue)}</span></td>
+            <td class="text-amber-600"><span class="num">${money(b.expenses)}</span></td>
+            <td class="font-semibold"><span class="num">${money(b.collected-b.expenses)}</span></td>
+          </tr>`).join('')}</tbody>
+      </table>
+    </div>`:''}
+  </div>`;
+}
+const stat=(label,val,meta,tone)=>`
+  <div class="card p-5">
+    <p class="eyebrow">${label}</p>
+    <p class="text-2xl font-bold display mt-2 text-${tone}"><span class="num">${money(val)}</span> <span class="text-xs font-medium text-ink-500">ر.س</span></p>
+    <p class="text-xs text-ink-500 mt-1.5">${meta}</p>
+  </div>`;
+
+/* ───── المالية ───── */
+async function financeView(){
+  const m=document.getElementById('main');
+  m.innerHTML=head('المالية',`الإيرادات والمصروفات شهريًا لعام ${YEAR}`);
+  await Promise.all([load.payments(),load.expenses(),load.units()]);
+  const bl=[...new Set(units.map(u=>u.building_name))];
+
+  const rows = MONTHS.map((label,i)=>{
+    const key=`${YEAR}-${String(i+1).padStart(2,'0')}`;
+    const p=payments.filter(x=>x.due_date.startsWith(key));
+    const rev=sumPaid(p.filter(x=>x.status==='paid'));
+    const exp=expenses.filter(e=>e.expense_date.startsWith(key)).reduce((s,e)=>s+Number(e.amount),0);
+    return { label, expected:sumAmt(p), rev, exp, net:rev-exp };
+  });
+  const T = rows.reduce((a,r)=>({expected:a.expected+r.expected,rev:a.rev+r.rev,exp:a.exp+r.exp,net:a.net+r.net}),{expected:0,rev:0,exp:0,net:0});
+
+  m.innerHTML+=`
+  <div class="fade space-y-6">
+    <details class="card p-5">
+      <summary class="font-semibold cursor-pointer">تسجيل مصروف</summary>
+      <div class="grid sm:grid-cols-2 gap-3 mt-4">
+        <div><label class="eyebrow block mb-2">المبنى</label>
+          <select id="e_b" class="field"><option value="">عام (غير مخصص)</option>${bl.map(b=>`<option>${b}</option>`).join('')}</select></div>
+        <div><label class="eyebrow block mb-2">البند</label>
+          <select id="e_c" class="field">
+            <option value="salaries">رواتب</option><option value="maintenance">صيانة</option>
+            <option value="utilities">كهرباء ومياه</option><option value="cleaning">نظافة</option>
+            <option value="government">رسوم حكومية</option><option value="other">أخرى</option>
+          </select></div>
+        <div><label class="eyebrow block mb-2">المبلغ (ر.س)</label><input id="e_a" type="number" class="field"></div>
+        <div><label class="eyebrow block mb-2">التاريخ</label><input id="e_d" type="date" class="field" value="${today()}"></div>
+        <div class="sm:col-span-2"><label class="eyebrow block mb-2">وصف</label><input id="e_n" class="field" placeholder="اختياري"></div>
+      </div>
+      <p id="e_err" class="text-rose-600 text-sm mt-3 hidden"></p>
+      <button onclick="addExpense()" class="btn-primary mt-4">حفظ المصروف</button>
+    </details>
+
+    <div class="card p-5 overflow-x-auto">
+      <h2 class="font-bold text-lg mb-4">الخطة السنوية والأداء الفعلي</h2>
+      <table class="w-full min-w-[520px]">
+        <thead><tr><th>الشهر</th><th>متوقع</th><th>محصّل</th><th>مصروفات</th><th>الصافي</th></tr></thead>
+        <tbody>
+          ${rows.map(r=>`<tr>
+            <td class="font-semibold">${r.label}</td>
+            <td class="text-ink-500"><span class="num">${money(r.expected)}</span></td>
+            <td class="text-teal-700"><span class="num">${money(r.rev)}</span></td>
+            <td class="text-amber-600"><span class="num">${money(r.exp)}</span></td>
+            <td class="font-semibold ${r.net<0?'text-rose-600':''}"><span class="num">${money(r.net)}</span></td>
+          </tr>`).join('')}
+          <tr class="bg-paper-50">
+            <td class="font-bold">الإجمالي</td>
+            <td class="font-bold"><span class="num">${money(T.expected)}</span></td>
+            <td class="font-bold text-teal-700"><span class="num">${money(T.rev)}</span></td>
+            <td class="font-bold text-amber-600"><span class="num">${money(T.exp)}</span></td>
+            <td class="font-bold ${T.net<0?'text-rose-600':''}"><span class="num">${money(T.net)}</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div>
+      <h2 class="font-bold text-lg mb-3">آخر المصروفات</h2>
+      <div id="elist" class="space-y-2.5"></div>
+    </div>
+  </div>`;
+  renderExpenses();
+}
+const EXP_LABEL={salaries:'رواتب',maintenance:'صيانة',utilities:'كهرباء ومياه',cleaning:'نظافة',government:'رسوم حكومية',other:'أخرى'};
+function renderExpenses(){
+  const box=document.getElementById('elist');
+  if(!expenses.length){ box.innerHTML=empty('لا مصروفات مسجّلة بعد.'); return; }
+  box.innerHTML=expenses.slice(0,25).map(e=>`
+    <div class="card p-4 flex items-center justify-between gap-3">
+      <div class="min-w-0">
+        <p class="font-semibold">${EXP_LABEL[e.category]||e.category}${e.building_name?` · ${e.building_name}`:''}</p>
+        <p class="text-sm text-ink-500 truncate">${e.notes||'—'} · <span class="num">${e.expense_date}</span></p>
+      </div>
+      <p class="font-bold shrink-0 text-amber-600"><span class="num">${money(e.amount)}</span> <span class="text-xs text-ink-500">ر.س</span></p>
+    </div>`).join('');
+}
+async function addExpense(){
+  const amount=Number(e_a.value), expense_date=e_d.value, err=document.getElementById('e_err');
+  err.classList.add('hidden');
+  if(!amount||amount<=0||!expense_date){ err.textContent='أدخل مبلغًا صحيحًا وتاريخًا.'; err.classList.remove('hidden'); return; }
+  const {error}=await db.from('expenses').insert({ building_name:e_b.value||null, category:e_c.value, amount, expense_date, notes:e_n.value.trim()||null });
+  if(error){ err.textContent='تعذّر الحفظ. حاول مرة أخرى.'; err.classList.remove('hidden'); return; }
+  financeView();
+}
+
+/* ───── التحصيل ───── */
 let payFilter='due';
-
 async function collectionView(){
-  const m = document.getElementById('main');
-  m.innerHTML = head('التحصيل','دفعات الإيجار المستحقة والمسددة عبر كل العقود') + `<div id="cw" class="text-ink-500 text-sm">جارٍ التحميل…</div>`;
+  const m=document.getElementById('main');
+  m.innerHTML=head('التحصيل','دفعات الإيجار المستحقة والمسددة');
   await load.payments();
-  const t = today();
-  const overdue = payments.filter(p=>p.status==='pending' && p.due_date < t);
-  const upcoming= payments.filter(p=>p.status==='pending' && p.due_date >= t);
-  const paid    = payments.filter(p=>p.status==='paid');
-  const sum = a => a.reduce((s,p)=>s+Number(p.status==='paid'?(p.paid_amount||p.amount):p.amount),0);
-
-  document.getElementById('cw').outerHTML = `
-  <div id="cw" class="fade">
+  const t=today();
+  const od=payments.filter(p=>p.status==='pending'&&p.due_date<t);
+  const up=payments.filter(p=>p.status==='pending'&&p.due_date>=t);
+  const pd=payments.filter(p=>p.status==='paid');
+  m.innerHTML+=`
+  <div class="fade">
     <div class="grid grid-cols-2 lg:grid-cols-3 gap-3 mb-6">
-      ${kpi('المتأخرات', sum(overdue), overdue.length+' دفعة', 'rose')}
-      ${kpi('مستحق قادم', sum(upcoming), upcoming.length+' دفعة', 'amber')}
-      ${kpi('إجمالي التحصيل', sum(paid), paid.length+' سند قبض', 'teal')}
+      ${stat('المتأخرات',sumAmt(od),od.length+' دفعة','rose-600')}
+      ${stat('مستحق قادم',sumAmt(up),up.length+' دفعة','amber-600')}
+      ${stat('إجمالي التحصيل',sumPaid(pd),pd.length+' سند قبض','teal-700')}
     </div>
-
     <div class="flex gap-2 mb-4 overflow-x-auto pb-1">
-      ${chip('due','المستحقة',overdue.length+upcoming.length)}
-      ${chip('overdue','المتأخرة',overdue.length)}
-      ${chip('paid','المسددة',paid.length)}
-      ${chip('all','الكل',payments.length)}
+      ${chip('due','المستحقة',od.length+up.length)}${chip('overdue','المتأخرة',od.length)}
+      ${chip('paid','المسددة',pd.length)}${chip('all','الكل',payments.length)}
     </div>
-
     <div id="plist" class="space-y-2.5"></div>
   </div>`;
   renderPayments();
 }
-
-const kpi = (label,val,meta,tone) => {
-  const c = { rose:'text-rose-600', amber:'text-amber-600', teal:'text-teal-700' }[tone];
-  return `<div class="card p-4">
-    <p class="eyebrow">${label}</p>
-    <p class="mt-2 text-xl font-bold ${c}"><span class="num">${money(val)}</span> <span class="text-xs font-medium text-ink-500">ر.س</span></p>
-    <p class="text-[.72rem] text-ink-500 mt-1">${meta}</p>
-  </div>`;
-};
-
-const chip = (id,label,n) => `
-  <button onclick="setPayFilter('${id}')" class="shrink-0 px-3.5 py-2 rounded-lg text-[.83rem] border ${payFilter===id?'bg-teal-900 text-white border-teal-900 font-semibold':'bg-white border-paper-200 text-ink-700'}">
-    ${label} <span class="num opacity-70">${n}</span>
-  </button>`;
-
+const chip=(id,label,n)=>`<button onclick="setPayFilter('${id}')" class="shrink-0 px-4 py-2 rounded-lg text-sm border ${payFilter===id?'bg-teal-900 text-white border-teal-900 font-semibold':'bg-white border-paper-200 text-ink-700'}">${label} <span class="num opacity-70">${n}</span></button>`;
 function setPayFilter(f){ payFilter=f; collectionView(); }
-
 function renderPayments(){
-  const t = today();
-  let rows = payments;
-  if(payFilter==='due')     rows = payments.filter(p=>p.status==='pending');
-  if(payFilter==='overdue') rows = payments.filter(p=>p.status==='pending' && p.due_date < t);
-  if(payFilter==='paid')    rows = payments.filter(p=>p.status==='paid');
-
-  const box = document.getElementById('plist');
-  if(!rows.length){ box.innerHTML = empty('لا توجد دفعات في هذا التصنيف. أنشئ عقدًا من قسم العقود ليُولَّد جدول دفعاته تلقائيًا.'); return; }
-
-  box.innerHTML = rows.map(p=>{
-    const late = p.status==='pending' && p.due_date < t;
-    const days = Math.round((new Date(t)-new Date(p.due_date))/864e5);
-    const l = p.leases||{};
+  const t=today();
+  let rows=payments;
+  if(payFilter==='due') rows=payments.filter(p=>p.status==='pending');
+  if(payFilter==='overdue') rows=payments.filter(p=>p.status==='pending'&&p.due_date<t);
+  if(payFilter==='paid') rows=payments.filter(p=>p.status==='paid');
+  const box=document.getElementById('plist');
+  if(!rows.length){ box.innerHTML=empty('لا دفعات في هذا التصنيف. أنشئ عقدًا ليُولَّد جدول دفعاته تلقائيًا.'); return; }
+  box.innerHTML=rows.map(p=>{
+    const late=p.status==='pending'&&p.due_date<t, days=Math.round((new Date(t)-new Date(p.due_date))/864e5), l=p.leases||{};
     return `<div class="card p-4 flex items-center justify-between gap-3">
       <div class="min-w-0">
-        <p class="font-semibold text-[.95rem] truncate">${l.tenants?.full_name||'—'}</p>
-        <p class="text-[.8rem] text-ink-500 truncate">${l.units?.building_name||''} · وحدة ${l.units?.unit_number||''}</p>
-        <p class="text-[.75rem] mt-1 ${late?'text-rose-600 font-medium':'text-ink-500'}">
-          الاستحقاق <span class="num">${p.due_date}</span>${late?` · متأخرة <span class="num">${days}</span> يوم`:''}
-        </p>
+        <p class="font-semibold truncate">${l.tenants?.full_name||'—'}</p>
+        <p class="text-sm text-ink-500 truncate">${l.units?.building_name||''} · وحدة ${l.units?.unit_number||''}</p>
+        <p class="text-xs mt-1 ${late?'text-rose-600 font-semibold':'text-ink-500'}">الاستحقاق <span class="num">${p.due_date}</span>${late?` · متأخرة <span class="num">${days}</span> يوم`:''}</p>
       </div>
       <div class="text-left shrink-0">
-        <p class="font-bold"><span class="num">${money(p.amount)}</span> <span class="text-[.7rem] text-ink-500">ر.س</span></p>
-        ${p.status==='paid'
-          ? `<p class="text-[.72rem] text-teal-700 mt-1">سُددت <span class="num">${(p.paid_at||'').slice(0,10)}</span></p>`
-          : `<button onclick="openReceipt('${p.id}')" class="btn-ghost mt-1.5 text-teal-700 border-teal-100">تسجيل دفعة</button>`}
+        <p class="font-bold"><span class="num">${money(p.amount)}</span> <span class="text-xs text-ink-500">ر.س</span></p>
+        ${p.status==='paid'?`<p class="text-xs text-teal-700 mt-1">سُددت <span class="num">${(p.paid_at||'').slice(0,10)}</span></p>`
+          :`<button onclick="openReceipt('${p.id}')" class="btn-ghost mt-1.5 text-teal-700 border-teal-100">تسجيل دفعة</button>`}
       </div>
-    </div>`;
-  }).join('');
+    </div>`;}).join('');
 }
-
 function openReceipt(id){
-  const p = payments.find(x=>x.id===id);
-  const wrap = document.createElement('div');
-  wrap.id='modal';
-  wrap.className='fixed inset-0 z-40 grid place-items-center p-4';
-  wrap.innerHTML = `
-    <div class="absolute inset-0 bg-ink-900/45" onclick="closeModal()"></div>
-    <div class="card relative w-full max-w-sm p-6 fade">
-      <h3 class="font-bold text-lg">تسجيل دفعة</h3>
-      <p class="text-ink-500 text-sm mt-1 mb-5">${p.leases?.tenants?.full_name||''} · استحقاق <span class="num">${p.due_date}</span></p>
-      <label class="eyebrow block mb-1.5">المبلغ المستلم (ر.س)</label>
-      <input id="r_amt" type="number" class="field mb-3.5" value="${p.amount}">
-      <label class="eyebrow block mb-1.5">تاريخ الاستلام</label>
-      <input id="r_date" type="date" class="field mb-3.5" value="${today()}">
-      <label class="eyebrow block mb-1.5">طريقة الدفع</label>
-      <select id="r_method" class="field mb-3.5">
-        <option value="transfer">تحويل بنكي</option>
-        <option value="cash">نقدًا</option>
-        <option value="cheque">شيك</option>
-        <option value="pos">شبكة</option>
-      </select>
-      <label class="eyebrow block mb-1.5">رقم السند / المرجع</label>
-      <input id="r_ref" class="field" placeholder="اختياري">
-      <p id="r_err" class="text-rose-600 text-xs mt-2.5 hidden"></p>
-      <div class="flex gap-2 mt-5">
-        <button onclick="saveReceipt('${p.id}')" class="btn-primary flex-1">حفظ السند</button>
-        <button onclick="closeModal()" class="btn-ghost px-4">إلغاء</button>
-      </div>
-    </div>`;
-  document.body.appendChild(wrap);
+  const p=payments.find(x=>x.id===id);
+  const w=document.createElement('div'); w.id='modal'; w.className='fixed inset-0 z-40 grid place-items-center p-4';
+  w.innerHTML=`<div class="absolute inset-0 bg-ink-900/45" onclick="closeModal()"></div>
+  <div class="card relative w-full max-w-sm p-6 fade">
+    <h3 class="font-bold text-xl">تسجيل دفعة</h3>
+    <p class="text-ink-500 text-sm mt-1 mb-5">${p.leases?.tenants?.full_name||''} · استحقاق <span class="num">${p.due_date}</span></p>
+    <label class="eyebrow block mb-2">المبلغ المستلم (ر.س)</label><input id="r_amt" type="number" class="field mb-4" value="${p.amount}">
+    <label class="eyebrow block mb-2">تاريخ الاستلام</label><input id="r_date" type="date" class="field mb-4" value="${today()}">
+    <label class="eyebrow block mb-2">طريقة الدفع</label>
+    <select id="r_method" class="field mb-4"><option value="transfer">تحويل بنكي</option><option value="cash">نقدًا</option><option value="cheque">شيك</option><option value="pos">شبكة</option></select>
+    <label class="eyebrow block mb-2">رقم السند / المرجع</label><input id="r_ref" class="field" placeholder="اختياري">
+    <p id="r_err" class="text-rose-600 text-sm mt-3 hidden"></p>
+    <div class="flex gap-2 mt-5"><button onclick="saveReceipt('${p.id}')" class="btn-primary flex-1">حفظ السند</button><button onclick="closeModal()" class="btn-ghost px-4">إلغاء</button></div>
+  </div>`;
+  document.body.appendChild(w);
 }
-const closeModal = () => document.getElementById('modal')?.remove();
-
+const closeModal=()=>document.getElementById('modal')?.remove();
 async function saveReceipt(id){
-  const amt = Number(r_amt.value), date = r_date.value, err = document.getElementById('r_err');
-  if(!amt || amt<=0 || !date){ err.textContent='أدخل مبلغًا صحيحًا وتاريخ الاستلام.'; err.classList.remove('hidden'); return; }
-  const { error } = await db.from('payments').update({
-    status:'paid', paid_amount:amt, paid_at:new Date(date).toISOString(),
-    payment_method:r_method.value, receipt_number:r_ref.value.trim()||null,
-  }).eq('id',id);
+  const amt=Number(r_amt.value), date=r_date.value, err=document.getElementById('r_err');
+  if(!amt||amt<=0||!date){ err.textContent='أدخل مبلغًا صحيحًا وتاريخ الاستلام.'; err.classList.remove('hidden'); return; }
+  const {error}=await db.from('payments').update({status:'paid',paid_amount:amt,paid_at:new Date(date).toISOString(),payment_method:r_method.value,receipt_number:r_ref.value.trim()||null}).eq('id',id);
   if(error){ err.textContent='تعذّر الحفظ. حاول مرة أخرى.'; err.classList.remove('hidden'); return; }
   closeModal(); collectionView();
 }
 
-/* ───────────── العقود ───────────── */
+/* ───── العقود ───── */
 async function leasesView(){
-  const m = document.getElementById('main');
-  m.innerHTML = head('العقود','عقود الإيجار السارية وسجل العقود المنتهية');
-  await Promise.all([load.tenants(), load.units(), load.leases()]);
-  const vac = units.filter(u=>u.status==='vacant');
-
-  m.innerHTML += `
+  const m=document.getElementById('main');
+  m.innerHTML=head('العقود','عقود الإيجار السارية وسجل العقود المنتهية');
+  await Promise.all([load.tenants(),load.units(),load.leases()]);
+  const vac=units.filter(u=>u.status==='vacant');
+  m.innerHTML+=`
   <div class="fade">
     <details class="card p-5 mb-6" open>
       <summary class="font-semibold cursor-pointer">عقد جديد</summary>
       <div class="grid sm:grid-cols-2 gap-3 mt-4">
-        <div class="sm:col-span-2">
-          <label class="eyebrow block mb-1.5">المستأجر</label>
-          <select id="l_tenant" class="field">
-            <option value="">اختر المستأجر</option>
-            ${tenants.filter(t=>t.status==='active').map(t=>`<option value="${t.id}">${t.full_name} — ${t.phone}</option>`).join('')}
-          </select>
-        </div>
-        <div class="sm:col-span-2">
-          <label class="eyebrow block mb-1.5">الوحدة الشاغرة</label>
-          <select id="l_unit" class="field">
-            <option value="">اختر الوحدة</option>
-            ${vac.map(u=>`<option value="${u.id}" data-rent="${u.base_rent}">${u.building_name} — وحدة ${u.unit_number} (${money(u.base_rent)} ر.س)</option>`).join('')}
-          </select>
-          ${vac.length?'':'<p class="text-[.75rem] text-amber-600 mt-1.5">لا توجد وحدات شاغرة حاليًا.</p>'}
-        </div>
-        <div><label class="eyebrow block mb-1.5">بداية العقد</label><input id="l_start" type="date" class="field" value="${today()}"></div>
-        <div><label class="eyebrow block mb-1.5">نهاية العقد</label><input id="l_end" type="date" class="field"></div>
-        <div><label class="eyebrow block mb-1.5">الإيجار الشهري (ر.س)</label><input id="l_rent" type="number" class="field"></div>
-        <div>
-          <label class="eyebrow block mb-1.5">دورية الدفع</label>
-          <select id="l_freq" class="field">
-            <option value="1">شهري</option><option value="3">كل ٣ أشهر</option>
-            <option value="6">نصف سنوي</option><option value="12">سنوي</option>
-          </select>
-        </div>
+        <div class="sm:col-span-2"><label class="eyebrow block mb-2">المستأجر</label>
+          <select id="l_tenant" class="field"><option value="">اختر المستأجر</option>${tenants.filter(t=>t.status==='active').map(t=>`<option value="${t.id}">${t.full_name} — ${t.phone}</option>`).join('')}</select></div>
+        <div class="sm:col-span-2"><label class="eyebrow block mb-2">الوحدة الشاغرة</label>
+          <select id="l_unit" class="field"><option value="">اختر الوحدة</option>${vac.map(u=>`<option value="${u.id}" data-rent="${u.base_rent}">${u.building_name} — وحدة ${u.unit_number} (${money(u.base_rent)} ر.س)</option>`).join('')}</select>
+          ${vac.length?'':'<p class="text-sm text-amber-600 mt-2">لا توجد وحدات شاغرة حاليًا.</p>'}</div>
+        <div><label class="eyebrow block mb-2">بداية العقد</label><input id="l_start" type="date" class="field" value="${today()}"></div>
+        <div><label class="eyebrow block mb-2">نهاية العقد</label><input id="l_end" type="date" class="field"></div>
+        <div><label class="eyebrow block mb-2">الإيجار الشهري (ر.س)</label><input id="l_rent" type="number" class="field"></div>
+        <div><label class="eyebrow block mb-2">دورية الدفع</label>
+          <select id="l_freq" class="field"><option value="1">شهري</option><option value="3">كل ٣ أشهر</option><option value="6">نصف سنوي</option><option value="12">سنوي</option></select></div>
       </div>
-      <p id="l_err" class="text-rose-600 text-xs mt-3 hidden"></p>
-      <p class="text-[.75rem] text-ink-500 mt-3">عند الحفظ يُولَّد جدول الدفعات تلقائيًا حسب الدورية المختارة.</p>
+      <p id="l_err" class="text-rose-600 text-sm mt-3 hidden"></p>
+      <p class="text-sm text-ink-500 mt-3">عند الحفظ يُولَّد جدول الدفعات تلقائيًا حسب الدورية.</p>
       <button onclick="addLease()" class="btn-primary mt-4">حفظ العقد وتفعيله</button>
     </details>
     <div id="llist" class="space-y-2.5"></div>
   </div>`;
   renderLeases();
-  document.getElementById('l_unit').addEventListener('change', e=>{
-    const r = e.target.selectedOptions[0]?.dataset.rent; if(r) l_rent.value = r;
-  });
-  document.getElementById('l_start').addEventListener('change', e=>{
-    if(!l_end.value){ const d=new Date(e.target.value); d.setFullYear(d.getFullYear()+1); d.setDate(d.getDate()-1); l_end.value=d.toISOString().slice(0,10); }
-  });
+  l_unit.addEventListener('change',e=>{ const r=e.target.selectedOptions[0]?.dataset.rent; if(r) l_rent.value=r; });
+  l_start.addEventListener('change',e=>{ if(!l_end.value){ const d=new Date(e.target.value); d.setFullYear(d.getFullYear()+1); d.setDate(d.getDate()-1); l_end.value=d.toISOString().slice(0,10);} });
 }
-
 function renderLeases(){
-  const box = document.getElementById('llist');
-  if(!leases.length){ box.innerHTML = empty('لا توجد عقود بعد.'); return; }
-  const label = {draft:'مسودة',active:'ساري',renewed:'مجدد',terminated:'منتهي',expired:'منتهي الصلاحية'};
-  const tone  = {active:'bg-teal-100 text-teal-700',draft:'bg-paper-100 text-ink-500',terminated:'bg-rose-100 text-rose-600',expired:'bg-amber-100 text-amber-600',renewed:'bg-teal-100 text-teal-700'};
-  box.innerHTML = leases.map(l=>`
-    <div class="card p-4 flex items-center justify-between gap-3">
-      <div class="min-w-0">
-        <p class="font-semibold text-[.95rem] truncate">${l.tenants?.full_name||'—'}</p>
-        <p class="text-[.8rem] text-ink-500 truncate">${l.units?.building_name||''} · وحدة ${l.units?.unit_number||''} · <span class="num">${money(l.monthly_rent)}</span> ر.س/شهر</p>
-        <p class="text-[.75rem] text-ink-300 mt-1"><span class="num">${l.start_date}</span> ← <span class="num">${l.end_date}</span></p>
-      </div>
-      <div class="flex flex-col items-end gap-1.5 shrink-0">
-        <span class="px-2 py-0.5 rounded-md text-[.7rem] font-medium ${tone[l.status]||''}">${label[l.status]||l.status}</span>
-        ${l.status==='active'?`<button onclick="endLease('${l.id}','${l.unit_id}')" class="btn-ghost text-rose-600 border-rose-100">إنهاء</button>`:''}
-      </div>
-    </div>`).join('');
+  const box=document.getElementById('llist');
+  if(!leases.length){ box.innerHTML=empty('لا عقود بعد.'); return; }
+  const L={draft:'مسودة',active:'ساري',renewed:'مجدد',terminated:'منتهي',expired:'منتهي الصلاحية'};
+  const C={active:'bg-teal-100 text-teal-700',draft:'bg-paper-100 text-ink-500',terminated:'bg-rose-100 text-rose-600',expired:'bg-amber-100 text-amber-600',renewed:'bg-teal-100 text-teal-700'};
+  box.innerHTML=leases.map(l=>`<div class="card p-4 flex items-center justify-between gap-3">
+    <div class="min-w-0">
+      <p class="font-semibold truncate">${l.tenants?.full_name||'—'}</p>
+      <p class="text-sm text-ink-500 truncate">${l.units?.building_name||''} · وحدة ${l.units?.unit_number||''} · <span class="num">${money(l.monthly_rent)}</span> ر.س/شهر</p>
+      <p class="text-xs text-ink-300 mt-1"><span class="num">${l.start_date}</span> ← <span class="num">${l.end_date}</span></p>
+    </div>
+    <div class="flex flex-col items-end gap-1.5 shrink-0">
+      <span class="pill ${C[l.status]||''}">${L[l.status]||l.status}</span>
+      ${l.status==='active'?`<button onclick="endLease('${l.id}','${l.unit_id}')" class="btn-ghost text-rose-600 border-rose-100">إنهاء</button>`:''}
+    </div></div>`).join('');
 }
-
 async function addLease(){
-  const tenant_id=l_tenant.value, unit_id=l_unit.value, start_date=l_start.value,
-        end_date=l_end.value, rent=Number(l_rent.value), step=Number(l_freq.value),
-        err=document.getElementById('l_err');
+  const tenant_id=l_tenant.value,unit_id=l_unit.value,start_date=l_start.value,end_date=l_end.value,
+        rent=Number(l_rent.value),step=Number(l_freq.value),err=document.getElementById('l_err');
   err.classList.add('hidden');
-  const fail = m => { err.textContent=m; err.classList.remove('hidden'); };
+  const fail=m=>{err.textContent=m;err.classList.remove('hidden');};
   if(!tenant_id||!unit_id||!start_date||!end_date||!rent) return fail('أكمل كل الحقول قبل الحفظ.');
-  if(new Date(end_date) <= new Date(start_date)) return fail('تاريخ النهاية يجب أن يكون بعد تاريخ البداية.');
-
-  const { data, error } = await db.from('leases')
-    .insert({ tenant_id, unit_id, start_date, end_date, monthly_rent:rent, status:'active' })
-    .select().single();
+  if(new Date(end_date)<=new Date(start_date)) return fail('تاريخ النهاية يجب أن يكون بعد تاريخ البداية.');
+  const {data,error}=await db.from('leases').insert({tenant_id,unit_id,start_date,end_date,monthly_rent:rent,status:'active'}).select().single();
   if(error) return fail('تعذّر حفظ العقد. حاول مرة أخرى.');
-
-  await db.from('units').update({ status:'occupied' }).eq('id', unit_id);
-  await db.from('payments').insert(buildSchedule(data.id, start_date, end_date, rent, step));
+  await db.from('units').update({status:'occupied'}).eq('id',unit_id);
+  await db.from('payments').insert(buildSchedule(data.id,start_date,end_date,rent,step));
   go('collection');
 }
-
-/** جدول دفعات: قسط لكل دورية من البداية حتى النهاية */
-function buildSchedule(lease_id, start, end, rent, step){
-  const rows=[], last=new Date(end), d=new Date(start);
-  while(d <= last){
-    rows.push({ lease_id, due_date:d.toISOString().slice(0,10), amount:rent*step, status:'pending' });
-    d.setMonth(d.getMonth()+step);
-  }
+function buildSchedule(lease_id,start,end,rent,step){
+  const rows=[],last=new Date(end),d=new Date(start);
+  while(d<=last){ rows.push({lease_id,due_date:d.toISOString().slice(0,10),amount:rent*step,status:'pending'}); d.setMonth(d.getMonth()+step); }
   return rows;
 }
-
-async function endLease(id, unitId){
+async function endLease(id,unitId){
   if(!confirm('إنهاء هذا العقد وإرجاع الوحدة إلى الشواغر؟')) return;
-  await db.from('leases').update({ status:'terminated' }).eq('id',id);
-  await db.from('units').update({ status:'vacant' }).eq('id',unitId);
+  await db.from('leases').update({status:'terminated'}).eq('id',id);
+  await db.from('units').update({status:'vacant'}).eq('id',unitId);
   leasesView();
 }
 
-/* ───────────── الوحدات ───────────── */
+/* ───── الوحدات + العدادات ───── */
 async function unitsView(){
-  const m = document.getElementById('main');
-  m.innerHTML = head('الوحدات','الوحدات المؤجرة والشاغرة في كل مبنى');
-  await load.units();
-  const occ = units.filter(u=>u.status==='occupied').length;
-  const rate = units.length ? Math.round(occ/units.length*100) : 0;
-
-  m.innerHTML += `
+  const m=document.getElementById('main');
+  m.innerHTML=head('الوحدات','الوحدات وأرقام عدادات الكهرباء والمياه');
+  await Promise.all([load.units(),load.readings()]);
+  const occ=units.filter(u=>u.status==='occupied').length, rate=units.length?Math.round(occ/units.length*100):0;
+  m.innerHTML+=`
   <div class="fade">
-    ${units.length?`
-    <div class="card p-5 mb-6">
+    ${units.length?`<div class="card p-5 mb-6">
       <div class="flex items-end justify-between mb-3">
-        <div><p class="eyebrow">نسبة الإشغال</p><p class="text-2xl font-bold mt-1"><span class="num">${rate}</span>%</p></div>
-        <p class="text-[.78rem] text-ink-500"><span class="num">${occ}</span> مؤجرة من <span class="num">${units.length}</span></p>
+        <div><p class="eyebrow">نسبة الإشغال</p><p class="text-3xl font-bold display mt-1"><span class="num">${rate}</span>%</p></div>
+        <p class="text-sm text-ink-500"><span class="num">${occ}</span> مؤجّرة من <span class="num">${units.length}</span></p>
       </div>
-      <div class="flex gap-1 flex-wrap">
-        ${units.map(u=>`<span title="${u.building_name} ${u.unit_number}" class="h-6 flex-1 min-w-[14px] rounded ${u.status==='occupied'?'bg-teal-700':'bg-paper-200'}"></span>`).join('')}
-      </div>
+      <div class="flex gap-1 flex-wrap">${units.map(u=>`<span title="${u.building_name} ${u.unit_number}" class="h-6 flex-1 min-w-[14px] rounded ${u.status==='occupied'?'bg-teal-700':'bg-paper-200'}"></span>`).join('')}</div>
     </div>`:''}
-
     <details class="card p-5 mb-6">
       <summary class="font-semibold cursor-pointer">وحدة جديدة</summary>
       <div class="grid sm:grid-cols-2 gap-3 mt-4">
-        <div><label class="eyebrow block mb-1.5">المبنى</label><input id="u_b" class="field"></div>
-        <div><label class="eyebrow block mb-1.5">رقم الوحدة</label><input id="u_n" class="field"></div>
-        <div><label class="eyebrow block mb-1.5">المساحة (م²)</label><input id="u_a" type="number" class="field"></div>
-        <div><label class="eyebrow block mb-1.5">الإيجار الشهري (ر.س)</label><input id="u_r" type="number" class="field"></div>
+        <div><label class="eyebrow block mb-2">المبنى</label><input id="u_b" class="field"></div>
+        <div><label class="eyebrow block mb-2">رقم الوحدة</label><input id="u_n" class="field"></div>
+        <div><label class="eyebrow block mb-2">المساحة (م²)</label><input id="u_a" type="number" class="field"></div>
+        <div><label class="eyebrow block mb-2">الإيجار الشهري (ر.س)</label><input id="u_r" type="number" class="field"></div>
+        <div><label class="eyebrow block mb-2">رقم عداد الكهرباء</label><input id="u_e" class="field" dir="ltr"></div>
+        <div><label class="eyebrow block mb-2">رقم عداد المياه</label><input id="u_w" class="field" dir="ltr"></div>
       </div>
-      <p id="u_err" class="text-rose-600 text-xs mt-3 hidden"></p>
+      <p id="u_err" class="text-rose-600 text-sm mt-3 hidden"></p>
       <button onclick="addUnit()" class="btn-primary mt-4">إضافة الوحدة</button>
     </details>
     <div id="ulist" class="space-y-2.5"></div>
   </div>`;
   renderUnits();
 }
-
 function renderUnits(){
   const box=document.getElementById('ulist');
-  if(!units.length){ box.innerHTML=empty('لا توجد وحدات بعد. أضف أول وحدة لتبدأ.'); return; }
-  const label={vacant:'شاغرة',occupied:'مؤجرة',maintenance:'صيانة'};
-  const tone={vacant:'bg-paper-100 text-ink-500',occupied:'bg-teal-100 text-teal-700',maintenance:'bg-amber-100 text-amber-600'};
-  box.innerHTML = units.map(u=>`
-    <div class="card p-4 flex items-center justify-between gap-3">
-      <div class="min-w-0">
-        <p class="font-semibold text-[.95rem] truncate">${u.building_name} — وحدة ${u.unit_number}</p>
-        <p class="text-[.8rem] text-ink-500">${u.area_sqm?`<span class="num">${u.area_sqm}</span> م² · `:''}<span class="num">${money(u.base_rent)}</span> ر.س/شهر</p>
+  if(!units.length){ box.innerHTML=empty('لا وحدات بعد. أضف أول وحدة لتبدأ.'); return; }
+  const L={vacant:'شاغرة',occupied:'مؤجّرة',maintenance:'صيانة'};
+  const C={vacant:'bg-paper-100 text-ink-500',occupied:'bg-teal-100 text-teal-700',maintenance:'bg-amber-100 text-amber-600'};
+  box.innerHTML=units.map(u=>{
+    const last=t=>readings.find(r=>r.unit_id===u.id&&r.meter_type===t);
+    const e=last('electricity'), w=last('water');
+    return `<div class="card p-4">
+      <div class="flex items-start justify-between gap-3">
+        <div class="min-w-0">
+          <p class="font-semibold">${u.building_name} — وحدة ${u.unit_number}</p>
+          <p class="text-sm text-ink-500">${u.area_sqm?`<span class="num">${u.area_sqm}</span> م² · `:''}<span class="num">${money(u.base_rent)}</span> ر.س/شهر</p>
+        </div>
+        <span class="pill shrink-0 ${C[u.status]||''}">${L[u.status]||u.status}</span>
       </div>
-      <span class="px-2 py-0.5 rounded-md text-[.7rem] font-medium shrink-0 ${tone[u.status]||''}">${label[u.status]||u.status}</span>
-    </div>`).join('');
+      <div class="grid grid-cols-2 gap-3 mt-4 pt-4 border-t border-paper-100">
+        ${meterCell('الكهرباء',u.electricity_meter,e)}
+        ${meterCell('المياه',u.water_meter,w)}
+      </div>
+      <button onclick="openReading('${u.id}')" class="btn-ghost mt-3 text-teal-700 border-teal-100">تسجيل قراءة عداد</button>
+    </div>`;}).join('');
 }
-
+const meterCell=(label,num,last)=>`
+  <div>
+    <p class="eyebrow">عداد ${label}</p>
+    <p class="text-sm mt-1">${num?`<span class="num">${num}</span>`:'<span class="text-ink-300">لم يُسجّل</span>'}</p>
+    <p class="text-xs text-ink-500 mt-0.5">${last?`آخر قراءة <span class="num">${last.reading}</span> · <span class="num">${last.reading_date}</span>`:'لا قراءات'}</p>
+  </div>`;
 async function addUnit(){
-  const building_name=u_b.value.trim(), unit_number=u_n.value.trim(),
-        area_sqm=u_a.value||null, base_rent=u_r.value, err=document.getElementById('u_err');
+  const building_name=u_b.value.trim(),unit_number=u_n.value.trim(),area_sqm=u_a.value||null,
+        base_rent=u_r.value,err=document.getElementById('u_err');
   err.classList.add('hidden');
   if(!building_name||!unit_number||!base_rent){ err.textContent='المبنى ورقم الوحدة والإيجار مطلوبة.'; err.classList.remove('hidden'); return; }
-  const { error } = await db.from('units').insert({ building_name, unit_number, area_sqm, base_rent });
+  const {error}=await db.from('units').insert({building_name,unit_number,area_sqm,base_rent,
+    electricity_meter:u_e.value.trim()||null, water_meter:u_w.value.trim()||null});
   if(error){ err.textContent='تعذّرت الإضافة. حاول مرة أخرى.'; err.classList.remove('hidden'); return; }
   unitsView();
 }
+function openReading(unitId){
+  const u=units.find(x=>x.id===unitId);
+  const w=document.createElement('div'); w.id='modal'; w.className='fixed inset-0 z-40 grid place-items-center p-4';
+  w.innerHTML=`<div class="absolute inset-0 bg-ink-900/45" onclick="closeModal()"></div>
+  <div class="card relative w-full max-w-sm p-6 fade">
+    <h3 class="font-bold text-xl">تسجيل قراءة عداد</h3>
+    <p class="text-ink-500 text-sm mt-1 mb-5">${u.building_name} — وحدة ${u.unit_number}</p>
+    <label class="eyebrow block mb-2">نوع العداد</label>
+    <select id="m_t" class="field mb-4"><option value="electricity">كهرباء</option><option value="water">مياه</option></select>
+    <label class="eyebrow block mb-2">القراءة</label><input id="m_v" type="number" class="field mb-4" dir="ltr">
+    <label class="eyebrow block mb-2">تاريخ القراءة</label><input id="m_d" type="date" class="field mb-4" value="${today()}">
+    <label class="eyebrow block mb-2">قيمة الفاتورة (ر.س)</label><input id="m_a" type="number" class="field" placeholder="اختياري">
+    <p id="m_err" class="text-rose-600 text-sm mt-3 hidden"></p>
+    <div class="flex gap-2 mt-5"><button onclick="saveReading('${unitId}')" class="btn-primary flex-1">حفظ القراءة</button><button onclick="closeModal()" class="btn-ghost px-4">إلغاء</button></div>
+  </div>`;
+  document.body.appendChild(w);
+}
+async function saveReading(unit_id){
+  const reading=Number(m_v.value), reading_date=m_d.value, err=document.getElementById('m_err');
+  if(!reading||!reading_date){ err.textContent='أدخل القراءة والتاريخ.'; err.classList.remove('hidden'); return; }
+  const {error}=await db.from('meter_readings').insert({unit_id,meter_type:m_t.value,reading,reading_date,amount:m_a.value?Number(m_a.value):null});
+  if(error){ err.textContent='تعذّر الحفظ. حاول مرة أخرى.'; err.classList.remove('hidden'); return; }
+  closeModal(); unitsView();
+}
 
-/* ───────────── المستأجرون ───────────── */
+/* ───── المستأجرون ───── */
 let tq='';
 async function tenantsView(){
   const m=document.getElementById('main');
-  m.innerHTML = head('المستأجرون','سجل المستأجرين وحالاتهم') + `
+  m.innerHTML=head('المستأجرون','سجل المستأجرين وحالاتهم')+`
   <div class="fade">
     <details class="card p-5 mb-6">
       <summary class="font-semibold cursor-pointer">مستأجر جديد</summary>
       <div class="grid sm:grid-cols-2 gap-3 mt-4">
-        <div class="sm:col-span-2"><label class="eyebrow block mb-1.5">الاسم الكامل</label><input id="t_n" class="field"></div>
-        <div><label class="eyebrow block mb-1.5">رقم الجوال</label><input id="t_p" class="field" dir="ltr" placeholder="05xxxxxxxx"></div>
-        <div><label class="eyebrow block mb-1.5">رقم الهوية</label><input id="t_i" class="field" dir="ltr"></div>
+        <div class="sm:col-span-2"><label class="eyebrow block mb-2">الاسم الكامل</label><input id="t_n" class="field"></div>
+        <div><label class="eyebrow block mb-2">رقم الجوال</label><input id="t_p" class="field" dir="ltr" placeholder="05xxxxxxxx"></div>
+        <div><label class="eyebrow block mb-2">رقم الهوية</label><input id="t_i" class="field" dir="ltr"></div>
       </div>
-      <p id="t_err" class="text-rose-600 text-xs mt-3 hidden"></p>
+      <p id="t_err" class="text-rose-600 text-sm mt-3 hidden"></p>
       <button onclick="addTenant()" class="btn-primary mt-4">إضافة المستأجر</button>
     </details>
     <input class="field mb-4" placeholder="ابحث بالاسم أو الجوال" oninput="searchTenants(this.value)">
@@ -502,46 +624,40 @@ async function tenantsView(){
   </div>`;
   await load.tenants(tq); renderTenants();
 }
-
 let tTimer;
 function searchTenants(v){ tq=v; clearTimeout(tTimer); tTimer=setTimeout(async()=>{ await load.tenants(tq); renderTenants(); },350); }
-
 function renderTenants(){
   const box=document.getElementById('tlist');
-  if(!tenants.length){ box.innerHTML=empty(tq?'لا نتائج مطابقة للبحث.':'لا يوجد مستأجرون بعد.'); return; }
-  const label={active:'نشط',inactive:'غير نشط',blacklisted:'قائمة سوداء'};
-  const tone={active:'bg-teal-100 text-teal-700',inactive:'bg-paper-100 text-ink-500',blacklisted:'bg-rose-100 text-rose-600'};
-  box.innerHTML = tenants.map(t=>`
-    <div class="card p-4 flex items-center justify-between gap-3">
-      <div class="min-w-0">
-        <p class="font-semibold text-[.95rem] truncate">${t.full_name}</p>
-        <p class="text-[.8rem] text-ink-500"><span class="num">${t.phone}</span>${t.national_id?` · <span class="num">${t.national_id}</span>`:''}</p>
-      </div>
-      <div class="flex flex-col items-end gap-1.5 shrink-0">
-        <span class="px-2 py-0.5 rounded-md text-[.7rem] font-medium ${tone[t.status]||''}">${label[t.status]||t.status}</span>
-        ${t.status!=='blacklisted'
-          ? `<button onclick="blockTenant('${t.id}')" class="btn-ghost text-rose-600 border-rose-100">قائمة سوداء</button>`
-          : `<button onclick="unblockTenant('${t.id}')" class="btn-ghost text-teal-700 border-teal-100">إعادة تفعيل</button>`}
-      </div>
-    </div>`).join('');
+  if(!tenants.length){ box.innerHTML=empty(tq?'لا نتائج مطابقة.':'لا مستأجرون بعد.'); return; }
+  const L={active:'نشط',inactive:'غير نشط',blacklisted:'قائمة سوداء'};
+  const C={active:'bg-teal-100 text-teal-700',inactive:'bg-paper-100 text-ink-500',blacklisted:'bg-rose-100 text-rose-600'};
+  box.innerHTML=tenants.map(t=>`<div class="card p-4 flex items-center justify-between gap-3">
+    <div class="min-w-0">
+      <p class="font-semibold truncate">${t.full_name}</p>
+      <p class="text-sm text-ink-500"><span class="num">${t.phone}</span>${t.national_id?` · <span class="num">${t.national_id}</span>`:''}</p>
+    </div>
+    <div class="flex flex-col items-end gap-1.5 shrink-0">
+      <span class="pill ${C[t.status]||''}">${L[t.status]||t.status}</span>
+      ${t.status!=='blacklisted'?`<button onclick="blockTenant('${t.id}')" class="btn-ghost text-rose-600 border-rose-100">قائمة سوداء</button>`
+        :`<button onclick="unblockTenant('${t.id}')" class="btn-ghost text-teal-700 border-teal-100">إعادة تفعيل</button>`}
+    </div></div>`).join('');
 }
-
 async function addTenant(){
-  const full_name=t_n.value.trim(), phone=t_p.value.trim(), national_id=t_i.value.trim(), err=document.getElementById('t_err');
+  const full_name=t_n.value.trim(),phone=t_p.value.trim(),national_id=t_i.value.trim(),err=document.getElementById('t_err');
   err.classList.add('hidden');
   if(!full_name||!phone){ err.textContent='الاسم ورقم الجوال مطلوبان.'; err.classList.remove('hidden'); return; }
-  const { error } = await db.from('tenants').insert({ full_name, phone, national_id:national_id||null });
-  if(error){ err.textContent = error.code==='23505' ? 'رقم الجوال أو الهوية مسجّل لمستأجر آخر.' : 'تعذّرت الإضافة. حاول مرة أخرى.'; err.classList.remove('hidden'); return; }
+  const {error}=await db.from('tenants').insert({full_name,phone,national_id:national_id||null});
+  if(error){ err.textContent=error.code==='23505'?'رقم الجوال أو الهوية مسجّل لمستأجر آخر.':'تعذّرت الإضافة. حاول مرة أخرى.'; err.classList.remove('hidden'); return; }
   tenantsView();
 }
 async function blockTenant(id){
-  const reason = prompt('سبب الإدراج في القائمة السوداء:');
-  if(!reason || reason.trim().length<3) return;
-  await db.from('tenants').update({ status:'blacklisted', blacklist_reason:reason, blacklisted_at:new Date().toISOString() }).eq('id',id);
+  const reason=prompt('سبب الإدراج في القائمة السوداء:');
+  if(!reason||reason.trim().length<3) return;
+  await db.from('tenants').update({status:'blacklisted',blacklist_reason:reason,blacklisted_at:new Date().toISOString()}).eq('id',id);
   await load.tenants(tq); renderTenants();
 }
 async function unblockTenant(id){
-  await db.from('tenants').update({ status:'active', blacklist_reason:null, blacklisted_at:null }).eq('id',id);
+  await db.from('tenants').update({status:'active',blacklist_reason:null,blacklisted_at:null}).eq('id',id);
   await load.tenants(tq); renderTenants();
 }
 
