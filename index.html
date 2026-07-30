@@ -73,7 +73,7 @@ const TABS = [
 
 const money = n => Number(n||0).toLocaleString('en-US',{maximumFractionDigits:0});
 const today = () => new Date().toISOString().slice(0,10);
-const YEAR  = new Date().getFullYear();
+const YEAR  = String(new Date().getFullYear());
 const MONTHS = ['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
 
 /* ───── auth ───── */
@@ -347,11 +347,21 @@ function renderExpenses(){
   box.innerHTML=expenses.slice(0,25).map(e=>`
     <div class="card p-4 flex items-center justify-between gap-3">
       <div class="min-w-0">
-        <p class="font-semibold">${EXP_LABEL[e.category]||e.category}${e.building_name?` · ${e.building_name}`:''}</p>
+        <p class="font-semibold">${EXP_LABEL[e.category]||e.category}${e.building_name?` · ${e.building_name}`:''}
+          ${e.source&&e.source!=='manual'?`<span class="pill bg-paper-100 text-ink-500 mr-1">${e.source==='maintenance'?'من الصيانة':e.source==='meter'?'من العدادات':'من الرواتب'}</span>`:''}</p>
         <p class="text-sm text-ink-500 truncate">${e.notes||'—'} · <span class="num">${e.expense_date}</span></p>
       </div>
-      <p class="font-bold shrink-0 text-amber-600"><span class="num">${money(e.amount)}</span> <span class="text-xs text-ink-500">ر.س</span></p>
+      <div class="text-left shrink-0">
+        <p class="font-bold text-amber-600"><span class="num">${money(e.amount)}</span> <span class="text-xs text-ink-500">ر.س</span></p>
+        ${(!e.source||e.source==='manual')?`<button onclick="deleteExpense('${e.id}')" class="btn-ghost text-rose-600 border-rose-100 mt-1.5">حذف</button>`
+          :`<p class="text-xs text-ink-300 mt-1.5">يُحذف من مصدره</p>`}
+      </div>
     </div>`).join('');
+}
+async function deleteExpense(id){
+  if(!confirm('حذف هذا المصروف؟')) return;
+  await db.from('expenses').delete().eq('id',id);
+  financeView();
 }
 async function addExpense(){
   const amount=Number(e_a.value), expense_date=e_d.value, err=document.getElementById('e_err');
@@ -561,8 +571,17 @@ function renderMaint(){
           ? `<p class="text-ink-700">الوحدات المستفيدة: ${nums.map(n=>`<span class="pill bg-teal-100 text-teal-700 mx-0.5">وحدة <span class="num">${n}</span></span>`).join('')}</p>
              <p class="text-xs text-ink-500 mt-1.5">نصيب كل وحدة <span class="num">${money(share)}</span> ر.س</p>`
           : `<p class="text-ink-500">مصروف مشترك على المبنى كامل</p>`}
+        <button onclick="deleteMaint('${x.id}')" class="btn-ghost text-rose-600 border-rose-100 mt-3">حذف السجل</button>
       </div>
     </div>`;}).join('');
+}
+
+async function deleteMaint(id){
+  if(!confirm('حذف عمل الصيانة وقيوده في المصروفات؟')) return;
+  await db.from('expenses').delete().eq('ref_id',id).eq('source','maintenance');
+  const {error}=await db.from('maintenance').delete().eq('id',id);
+  if(error) return alert('تعذّر الحذف. حاول مرة أخرى.');
+  maintView();
 }
 
 /* ───── العمال والرواتب ───── */
@@ -661,7 +680,7 @@ async function runPayroll(){
 async function leasesView(){
   const m=document.getElementById('main');
   m.innerHTML=head('العقود','عقود الإيجار السارية وسجل العقود المنتهية');
-  await Promise.all([load.tenants(),load.units(),load.leases()]);
+  await Promise.all([load.tenants(),load.units(),load.leases(),load.payments()]);
   const vac=units.filter(u=>u.status==='vacant');
   m.innerHTML+=`
   <div class="fade">
@@ -706,7 +725,9 @@ function renderLeases(){
     </div>
     <div class="flex flex-col items-end gap-1.5 shrink-0">
       <span class="pill ${C[l.status]||''}">${L[l.status]||l.status}</span>
-      ${l.status==='active'?`<button onclick="endLease('${l.id}','${l.unit_id}')" class="btn-ghost text-rose-600 border-rose-100">إنهاء</button>`:''}
+      ${l.status==='active'
+        ? `<button onclick="endLease('${l.id}','${l.unit_id}')" class="btn-ghost text-rose-600 border-rose-100">إنهاء</button>`
+        : `<button onclick="deleteLease('${l.id}')" class="btn-ghost text-rose-600 border-rose-100">حذف من السجل</button>`}
     </div></div>`).join('');
 }
 function previewPlan(){
@@ -742,9 +763,19 @@ function buildSchedule(lease_id,start,end,annual,count){
   return rows;
 }
 async function endLease(id,unitId){
-  if(!confirm('إنهاء هذا العقد وإرجاع الوحدة إلى الشواغر؟')) return;
+  const future=payments.filter(p=>p.lease_id===id&&p.status==='pending'&&p.due_date>today()).length;
+  if(!confirm(`إنهاء هذا العقد وإرجاع الوحدة إلى الشواغر؟${future?`\nسيتم إلغاء ${future} دفعة مستقبلية لم تُستحق بعد.`:''}`)) return;
   await db.from('leases').update({status:'terminated'}).eq('id',id);
   await db.from('units').update({status:'vacant'}).eq('id',unitId);
+  // الدفعات المستقبلية غير المستحقة تُلغى حتى لا تظهر كمتأخرات وهمية
+  await db.from('payments').delete().eq('lease_id',id).eq('status','pending').gt('due_date',today());
+  leasesView();
+}
+
+async function deleteLease(id){
+  if(!confirm('حذف هذا العقد وكل دفعاته نهائيًا من السجل؟')) return;
+  const {error}=await db.from('leases').delete().eq('id',id);
+  if(error) return alert('تعذّر الحذف. حاول مرة أخرى.');
   leasesView();
 }
 
@@ -819,6 +850,8 @@ async function addUnit(){
         base_rent=u_r.value,err=document.getElementById('u_err');
   err.classList.add('hidden');
   if(!building_name||!unit_number||!base_rent){ err.textContent='المبنى ورقم الوحدة والإيجار مطلوبة.'; err.classList.remove('hidden'); return; }
+  if(units.some(u=>u.building_name===building_name&&String(u.unit_number)===unit_number)){
+    err.textContent='هذه الوحدة مسجّلة مسبقًا في نفس المبنى.'; err.classList.remove('hidden'); return; }
   const {error}=await db.from('units').insert({building_name,unit_number,area_sqm,base_rent,
     electricity_meter:u_e.value.trim()||null, water_meter:u_w.value.trim()||null});
   if(error){ err.textContent='تعذّرت الإضافة. حاول مرة أخرى.'; err.classList.remove('hidden'); return; }
@@ -871,11 +904,18 @@ async function saveUnitEdit(id){
 }
 
 async function deleteUnit(id){
-  const linked=leases.filter(l=>l.unit_id===id).length;
-  if(linked) return alert('لا يمكن حذف وحدة مرتبطة بعقود. أنهِ عقودها أولاً.');
-  if(!confirm('حذف هذه الوحدة نهائيًا؟')) return;
+  const active=leases.filter(l=>l.unit_id===id&&l.status==='active');
+  if(active.length) return alert('هذه الوحدة عليها عقد ساري. أنهِ العقد أولاً ثم احذفها.');
+  const old=leases.filter(l=>l.unit_id===id);
+  const msg = old.length
+    ? `هذه الوحدة لها ${old.length} عقد منتهٍ في السجل. حذفها سيحذف تلك العقود ودفعاتها نهائيًا. متابعة؟`
+    : 'حذف هذه الوحدة نهائيًا؟';
+  if(!confirm(msg)) return;
+  if(old.length) await db.from('leases').delete().in('id',old.map(l=>l.id));
+  await db.from('meter_readings').delete().eq('unit_id',id);
+  await db.from('expenses').delete().eq('unit_id',id);
   const {error}=await db.from('units').delete().eq('id',id);
-  if(error) return alert('تعذّر الحذف — قد تكون الوحدة مرتبطة بسجلات أخرى.');
+  if(error) return alert('تعذّر الحذف — الوحدة مرتبطة بسجلات أخرى.');
   closeModal(); unitsView();
 }
 
@@ -899,8 +939,16 @@ function openReading(unitId){
 async function saveReading(unit_id){
   const reading=Number(m_v.value), reading_date=m_d.value, err=document.getElementById('m_err');
   if(!reading||!reading_date){ err.textContent='أدخل القراءة والتاريخ.'; err.classList.remove('hidden'); return; }
-  const {error}=await db.from('meter_readings').insert({unit_id,meter_type:m_t.value,reading,reading_date,amount:m_a.value?Number(m_a.value):null});
+  const amount=m_a.value?Number(m_a.value):null, type=m_t.value;
+  const {data,error}=await db.from('meter_readings').insert({unit_id,meter_type:type,reading,reading_date,amount}).select().single();
   if(error){ err.textContent='تعذّر الحفظ. حاول مرة أخرى.'; err.classList.remove('hidden'); return; }
+  // قيمة الفاتورة تُقيَّد كمصروف على الوحدة حتى تدخل في حساب التشغيل
+  if(amount){
+    const u=units.find(x=>x.id===unit_id);
+    await db.from('expenses').insert({ building_name:u?.building_name||null, category:'utilities', amount,
+      expense_date:reading_date, unit_id, source:'meter', ref_id:data.id,
+      notes:`فاتورة ${type==='electricity'?'كهرباء':'مياه'} — وحدة ${u?.unit_number||''}` });
+  }
   closeModal(); unitsView();
 }
 
@@ -939,8 +987,11 @@ function renderTenants(){
     </div>
     <div class="flex flex-col items-end gap-1.5 shrink-0">
       <span class="pill ${C[t.status]||''}">${L[t.status]||t.status}</span>
-      ${t.status!=='blacklisted'?`<button onclick="blockTenant('${t.id}')" class="btn-ghost text-rose-600 border-rose-100">قائمة سوداء</button>`
-        :`<button onclick="unblockTenant('${t.id}')" class="btn-ghost text-teal-700 border-teal-100">إعادة تفعيل</button>`}
+      <div class="flex gap-1.5">
+        <button onclick="openTenantEdit('${t.id}')" class="btn-ghost">تعديل</button>
+        ${t.status!=='blacklisted'?`<button onclick="blockTenant('${t.id}')" class="btn-ghost text-rose-600 border-rose-100">قائمة سوداء</button>`
+          :`<button onclick="unblockTenant('${t.id}')" class="btn-ghost text-teal-700 border-teal-100">إعادة تفعيل</button>`}
+      </div>
     </div></div>`).join('');
 }
 async function addTenant(){
@@ -951,7 +1002,52 @@ async function addTenant(){
   if(error){ err.textContent=error.code==='23505'?'رقم الجوال أو الهوية مسجّل لمستأجر آخر.':'تعذّرت الإضافة. حاول مرة أخرى.'; err.classList.remove('hidden'); return; }
   tenantsView();
 }
+function openTenantEdit(id){
+  const t=tenants.find(x=>x.id===id);
+  const w=document.createElement('div'); w.id='modal'; w.className='fixed inset-0 z-40 grid place-items-center p-4 overflow-y-auto';
+  w.innerHTML=`<div class="absolute inset-0 bg-ink-900/45" onclick="closeModal()"></div>
+  <div class="card relative w-full max-w-md p-6 fade my-8">
+    <h3 class="font-bold text-xl mb-5">تعديل بيانات المستأجر</h3>
+    <label class="eyebrow block mb-2">الاسم الكامل</label><input id="te_name" class="field mb-4" value="${t.full_name||''}">
+    <div class="grid grid-cols-2 gap-3">
+      <div><label class="eyebrow block mb-2">رقم الجوال</label><input id="te_phone" class="field" dir="ltr" value="${t.phone||''}"></div>
+      <div><label class="eyebrow block mb-2">رقم الهوية</label><input id="te_id" class="field" dir="ltr" value="${t.national_id||''}"></div>
+    </div>
+    <p id="te_err" class="text-rose-600 text-sm mt-3 hidden"></p>
+    <div class="flex gap-2 mt-5">
+      <button onclick="saveTenantEdit('${t.id}')" class="btn-primary flex-1">حفظ التعديلات</button>
+      <button onclick="closeModal()" class="btn-ghost px-4">إلغاء</button>
+    </div>
+    <button onclick="deleteTenant('${t.id}')" class="text-sm text-rose-600 mt-4 w-full">حذف المستأجر</button>
+  </div>`;
+  document.body.appendChild(w);
+}
+async function saveTenantEdit(id){
+  const full_name=document.getElementById('te_name').value.trim(),
+        phone=document.getElementById('te_phone').value.trim(),
+        national_id=document.getElementById('te_id').value.trim(),
+        err=document.getElementById('te_err');
+  err.classList.add('hidden');
+  if(!full_name||!phone){ err.textContent='الاسم ورقم الجوال مطلوبان.'; err.classList.remove('hidden'); return; }
+  const {error}=await db.from('tenants').update({full_name,phone,national_id:national_id||null}).eq('id',id);
+  if(error){ err.textContent=error.code==='23505'?'رقم الجوال أو الهوية مسجّل لمستأجر آخر.':'تعذّر الحفظ. حاول مرة أخرى.'; err.classList.remove('hidden'); return; }
+  closeModal(); await load.tenants(tq); renderTenants();
+}
+async function deleteTenant(id){
+  await load.leases();
+  const own=leases.filter(l=>l.tenant_id===id);
+  const act=own.filter(l=>l.status==='active');
+  if(act.length) return alert('هذا المستأجر عليه عقد ساري. أنهِ العقد أولاً.');
+  if(!confirm(own.length?`سيُحذف المستأجر و${own.length} عقد منتهٍ ودفعاتها. متابعة؟`:'حذف هذا المستأجر نهائيًا؟')) return;
+  if(own.length) await db.from('leases').delete().in('id',own.map(l=>l.id));
+  const {error}=await db.from('tenants').delete().eq('id',id);
+  if(error) return alert('تعذّر الحذف — المستأجر مرتبط بسجلات أخرى.');
+  closeModal(); await load.tenants(tq); renderTenants();
+}
 async function blockTenant(id){
+  await load.leases();
+  if(leases.some(l=>l.tenant_id===id&&l.status==='active'))
+    if(!confirm('هذا المستأجر عليه عقد ساري. إدراجه في القائمة السوداء لن يُنهي العقد. متابعة؟')) return;
   const reason=prompt('سبب الإدراج في القائمة السوداء:');
   if(!reason||reason.trim().length<3) return;
   await db.from('tenants').update({status:'blacklisted',blacklist_reason:reason,blacklisted_at:new Date().toISOString()}).eq('id',id);
