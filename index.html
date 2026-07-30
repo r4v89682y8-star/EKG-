@@ -448,22 +448,26 @@ async function leasesView(){
         <div class="sm:col-span-2"><label class="eyebrow block mb-2">المستأجر</label>
           <select id="l_tenant" class="field"><option value="">اختر المستأجر</option>${tenants.filter(t=>t.status==='active').map(t=>`<option value="${t.id}">${t.full_name} — ${t.phone}</option>`).join('')}</select></div>
         <div class="sm:col-span-2"><label class="eyebrow block mb-2">الوحدة الشاغرة</label>
-          <select id="l_unit" class="field"><option value="">اختر الوحدة</option>${vac.map(u=>`<option value="${u.id}" data-rent="${u.base_rent}">${u.building_name} — وحدة ${u.unit_number} (${money(u.base_rent)} ر.س)</option>`).join('')}</select>
+          <select id="l_unit" class="field"><option value="">اختر الوحدة</option>${vac.map(u=>`<option value="${u.id}" data-rent="${u.base_rent}">${u.building_name} — وحدة ${u.unit_number} (${money(u.base_rent)} ر.س سنويًا)</option>`).join('')}</select>
           ${vac.length?'':'<p class="text-sm text-amber-600 mt-2">لا توجد وحدات شاغرة حاليًا.</p>'}</div>
         <div><label class="eyebrow block mb-2">بداية العقد</label><input id="l_start" type="date" class="field" value="${today()}"></div>
         <div><label class="eyebrow block mb-2">نهاية العقد</label><input id="l_end" type="date" class="field"></div>
-        <div><label class="eyebrow block mb-2">الإيجار الشهري (ر.س)</label><input id="l_rent" type="number" class="field"></div>
-        <div><label class="eyebrow block mb-2">دورية الدفع</label>
-          <select id="l_freq" class="field"><option value="1">شهري</option><option value="3">كل ٣ أشهر</option><option value="6">نصف سنوي</option><option value="12">سنوي</option></select></div>
+        <div><label class="eyebrow block mb-2">الإيجار السنوي (ر.س)</label><input id="l_rent" type="number" class="field" oninput="previewPlan()"></div>
+        <div><label class="eyebrow block mb-2">عدد الدفعات في السنة</label>
+          <select id="l_count" class="field" onchange="previewPlan()">
+            <option value="1">دفعة واحدة</option><option value="2">دفعتان</option>
+            <option value="3">٣ دفعات</option><option value="4">٤ دفعات</option><option value="12">١٢ دفعة (شهري)</option>
+          </select></div>
       </div>
       <p id="l_err" class="text-rose-600 text-sm mt-3 hidden"></p>
-      <p class="text-sm text-ink-500 mt-3">عند الحفظ يُولَّد جدول الدفعات تلقائيًا حسب الدورية.</p>
+      <p id="l_plan" class="text-sm text-teal-700 mt-3 font-semibold"></p>
+      <p class="text-sm text-ink-500 mt-1">يُولَّد جدول الدفعات تلقائيًا بعد الحفظ.</p>
       <button onclick="addLease()" class="btn-primary mt-4">حفظ العقد وتفعيله</button>
     </details>
     <div id="llist" class="space-y-2.5"></div>
   </div>`;
   renderLeases();
-  l_unit.addEventListener('change',e=>{ const r=e.target.selectedOptions[0]?.dataset.rent; if(r) l_rent.value=r; });
+  l_unit.addEventListener('change',e=>{ const r=e.target.selectedOptions[0]?.dataset.rent; if(r){ l_rent.value=r; previewPlan(); } });
   l_start.addEventListener('change',e=>{ if(!l_end.value){ const d=new Date(e.target.value); d.setFullYear(d.getFullYear()+1); d.setDate(d.getDate()-1); l_end.value=d.toISOString().slice(0,10);} });
 }
 function renderLeases(){
@@ -474,7 +478,7 @@ function renderLeases(){
   box.innerHTML=leases.map(l=>`<div class="card p-4 flex items-center justify-between gap-3">
     <div class="min-w-0">
       <p class="font-semibold truncate">${l.tenants?.full_name||'—'}</p>
-      <p class="text-sm text-ink-500 truncate">${l.units?.building_name||''} · وحدة ${l.units?.unit_number||''} · <span class="num">${money(l.monthly_rent)}</span> ر.س/شهر</p>
+      <p class="text-sm text-ink-500 truncate">${l.units?.building_name||''} · وحدة ${l.units?.unit_number||''} · <span class="num">${money(l.annual_rent||l.monthly_rent*12)}</span> ر.س/سنة${l.installments?` · ${l.installments===1?'دفعة واحدة':l.installments+' دفعات'}`:''}</p>
       <p class="text-xs text-ink-300 mt-1"><span class="num">${l.start_date}</span> ← <span class="num">${l.end_date}</span></p>
     </div>
     <div class="flex flex-col items-end gap-1.5 shrink-0">
@@ -482,22 +486,36 @@ function renderLeases(){
       ${l.status==='active'?`<button onclick="endLease('${l.id}','${l.unit_id}')" class="btn-ghost text-rose-600 border-rose-100">إنهاء</button>`:''}
     </div></div>`).join('');
 }
+function previewPlan(){
+  const box=document.getElementById('l_plan'); if(!box) return;
+  const annual=Number(l_rent.value), n=Number(l_count.value);
+  box.textContent = annual>0
+    ? `${n===1?'دفعة واحدة':n+' دفعات'} × ${money(Math.round(annual/n))} ر.س — كل ${12/n} شهر`
+    : '';
+}
+
 async function addLease(){
   const tenant_id=l_tenant.value,unit_id=l_unit.value,start_date=l_start.value,end_date=l_end.value,
-        rent=Number(l_rent.value),step=Number(l_freq.value),err=document.getElementById('l_err');
+        annual=Number(l_rent.value),count=Number(l_count.value),err=document.getElementById('l_err');
   err.classList.add('hidden');
   const fail=m=>{err.textContent=m;err.classList.remove('hidden');};
-  if(!tenant_id||!unit_id||!start_date||!end_date||!rent) return fail('أكمل كل الحقول قبل الحفظ.');
+  if(!tenant_id||!unit_id||!start_date||!end_date||!annual) return fail('أكمل كل الحقول قبل الحفظ.');
   if(new Date(end_date)<=new Date(start_date)) return fail('تاريخ النهاية يجب أن يكون بعد تاريخ البداية.');
-  const {data,error}=await db.from('leases').insert({tenant_id,unit_id,start_date,end_date,monthly_rent:rent,status:'active'}).select().single();
+  const {data,error}=await db.from('leases').insert({
+    tenant_id,unit_id,start_date,end_date,status:'active',
+    annual_rent:annual, installments:count, monthly_rent:Math.round(annual/12)
+  }).select().single();
   if(error) return fail('تعذّر حفظ العقد. حاول مرة أخرى.');
   await db.from('units').update({status:'occupied'}).eq('id',unit_id);
-  await db.from('payments').insert(buildSchedule(data.id,start_date,end_date,rent,step));
+  await db.from('payments').insert(buildSchedule(data.id,start_date,end_date,annual,count));
   go('collection');
 }
-function buildSchedule(lease_id,start,end,rent,step){
-  const rows=[],last=new Date(end),d=new Date(start);
-  while(d<=last){ rows.push({lease_id,due_date:d.toISOString().slice(0,10),amount:rent*step,status:'pending'}); d.setMonth(d.getMonth()+step); }
+
+/** دفعة لكل قسط: المبلغ = الإيجار السنوي ÷ عدد الدفعات، والفاصل = ١٢ ÷ عدد الدفعات بالأشهر */
+function buildSchedule(lease_id,start,end,annual,count){
+  const rows=[], last=new Date(end), d=new Date(start),
+        step=12/count, amount=Math.round(annual/count);
+  while(d<=last){ rows.push({lease_id,due_date:d.toISOString().slice(0,10),amount,status:'pending'}); d.setMonth(d.getMonth()+step); }
   return rows;
 }
 async function endLease(id,unitId){
@@ -528,7 +546,7 @@ async function unitsView(){
         <div><label class="eyebrow block mb-2">المبنى</label><input id="u_b" class="field"></div>
         <div><label class="eyebrow block mb-2">رقم الوحدة</label><input id="u_n" class="field"></div>
         <div><label class="eyebrow block mb-2">المساحة (م²)</label><input id="u_a" type="number" class="field"></div>
-        <div><label class="eyebrow block mb-2">الإيجار الشهري (ر.س)</label><input id="u_r" type="number" class="field"></div>
+        <div><label class="eyebrow block mb-2">الإيجار السنوي (ر.س)</label><input id="u_r" type="number" class="field"></div>
         <div><label class="eyebrow block mb-2">رقم عداد الكهرباء</label><input id="u_e" class="field" dir="ltr"></div>
         <div><label class="eyebrow block mb-2">رقم عداد المياه</label><input id="u_w" class="field" dir="ltr"></div>
       </div>
@@ -551,7 +569,7 @@ function renderUnits(){
       <div class="flex items-start justify-between gap-3">
         <div class="min-w-0">
           <p class="font-semibold">${u.building_name} — وحدة ${u.unit_number}</p>
-          <p class="text-sm text-ink-500">${u.area_sqm?`<span class="num">${u.area_sqm}</span> م² · `:''}<span class="num">${money(u.base_rent)}</span> ر.س/شهر</p>
+          <p class="text-sm text-ink-500">${u.area_sqm?`<span class="num">${u.area_sqm}</span> م² · `:''}<span class="num">${money(u.base_rent)}</span> ر.س/سنة</p>
         </div>
         <span class="pill shrink-0 ${C[u.status]||''}">${L[u.status]||u.status}</span>
       </div>
