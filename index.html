@@ -72,7 +72,7 @@ tailwind.config = { theme:{ extend:{
   const SUPABASE_KEY = "sb_publishable_26WQJ1wSFyt3eNDdkj2yyw_RwYDK6yf";
   const BRAND = "أصول";              // ← اسم النظام، غيّره من هنا
   const BRAND_SUB = "إدارة الأملاك";
-  const VERSION = "v14";                // للتأكد من أن النسخة المنشورة محدّثة
+  const VERSION = "v15";                // للتأكد من أن النسخة المنشورة محدّثة
 </script>
 
 <div id="app"></div>
@@ -798,8 +798,8 @@ async function saveQuick(){
         unit_ids=[...document.querySelectorAll('.q_u:checked')].map(c=>c.value);
   if(!building_name||!cost||!service_date) return showError('أكمل المبنى والتكلفة والتاريخ قبل الحفظ.');
   const {data,error}=await db.from('maintenance').insert({
-    building_name, category, description:QP.description, cost, service_date, status:'done',
-    scope: unit_ids.length?'units':'building', unit_ids
+    building_name, category, description:QP.description, cost, estimated_cost:cost, adjustments:[],
+    service_date, status:'done', scope: unit_ids.length?'units':'building', unit_ids
   }).select().single();
   if(error) return showError('تعذّر الحفظ: '+error.message);
   await postMaintExpense({...data, unit_ids});
@@ -854,7 +854,7 @@ async function maintView(){
           </select></div>
         <div><label class="eyebrow block mb-2">البند</label>
           <select id="mt_c" class="field">${Object.entries(MAINT_CATS).map(([k,v])=>`<option value="${k}">${v}</option>`).join('')}</select></div>
-        <div><label class="eyebrow block mb-2">التكلفة (ر.س)</label><input id="mt_cost" type="number" class="field" oninput="splitPreview()"></div>
+        <div><label class="eyebrow block mb-2">التكلفة التقديرية (ر.س)</label><input id="mt_cost" type="number" class="field" oninput="splitPreview()"></div>
         <div><label class="eyebrow block mb-2">التاريخ</label><input id="mt_d" type="date" class="field" value="${today()}"></div>
         <div><label class="eyebrow block mb-2">المورد / الفني</label><input id="mt_v" class="field" placeholder="اختياري"></div>
         <div><label class="eyebrow block mb-2">الوصف</label><input id="mt_desc" class="field" placeholder="مثال: تغيير دينمو المضخة الرئيسية"></div>
@@ -925,7 +925,7 @@ async function addMaint(){
 
   const status=document.getElementById('mt_st').value;
   const {data,error}=await db.from('maintenance').insert({
-    building_name,category,description,cost,vendor,service_date,status,
+    building_name,category,description,cost,estimated_cost:cost,adjustments:[],vendor,service_date,status,
     scope: perUnit?'units':'building', unit_ids: perUnit?unit_ids:[]
   }).select().single();
   if(error) return fail('تعذّر الحفظ: '+error.message);
@@ -956,26 +956,154 @@ function renderMaint(){
           ${x.description?`<p class="text-sm text-ink-500">${x.description}</p>`:''}
           <p class="text-xs text-ink-500 mt-1"><span class="num">${x.service_date}</span>${x.vendor?` · ${x.vendor}`:''}</p>
         </div>
-        <p class="font-bold shrink-0 text-amber-600"><span class="num">${money(x.cost)}</span> <span class="text-xs text-ink-500">ر.س</span></p>
+        <div class="shrink-0 text-left">
+          <p class="font-bold text-amber-600"><span class="num">${money(x.cost)}</span> <span class="text-xs text-ink-500">ر.س</span></p>
+          ${(x.estimated_cost!=null && Number(x.estimated_cost)!==Number(x.cost))
+            ? `<p class="text-xs text-ink-500 mt-0.5">تقديري <span class="num">${money(x.estimated_cost)}</span>
+                 <span class="${Number(x.cost)>Number(x.estimated_cost)?'text-rose-600':'text-teal-700'}">
+                   ${Number(x.cost)>Number(x.estimated_cost)?'+':'−'}<span class="num">${money(Math.abs(Number(x.cost)-Number(x.estimated_cost)))}</span></span></p>`
+            : `<p class="text-xs text-ink-300 mt-0.5">${x.status==='done'?'قيد نهائي':'تقديري'}</p>`}
+        </div>
       </div>
       <div class="mt-3 pt-3 border-t border-paper-100 text-sm">
         ${nums.length
           ? `<p class="text-ink-700">الوحدات المستفيدة: ${nums.map(n=>`<span class="pill bg-teal-100 text-teal-700 mx-0.5">وحدة <span class="num">${n}</span></span>`).join('')}</p>
              <p class="text-xs text-ink-500 mt-1.5">نصيب كل وحدة <span class="num">${money(share)}</span> ر.س</p>`
           : `<p class="text-ink-500">مصروف مشترك على المبنى كامل</p>`}
-        <div class="flex gap-1.5 mt-3">
-          ${x.status!=='done'?`<button onclick="finishMaint('${x.id}')" class="btn-ghost text-teal-700 border-teal-100">تعليم كمنجزة وقيد التكلفة</button>`:''}
-          <button onclick="deleteMaint('${x.id}')" class="btn-ghost text-rose-600 border-rose-100">حذف السجل</button>
+        ${(x.adjustments&&x.adjustments.length)?`
+          <div class="mt-3 pt-3 border-t border-paper-100">
+            <p class="eyebrow mb-1.5">حركات التكلفة</p>
+            ${x.adjustments.map((a,i)=>`<div class="flex justify-between gap-3 text-xs py-1 border-b border-paper-100 last:border-0">
+              <span class="text-ink-500">${a.note||'تعديل'} · <span class="num">${a.date||''}</span></span>
+              <span class="shrink-0 ${Number(a.amount)>0?'text-rose-600':'text-teal-700'} font-semibold">
+                ${Number(a.amount)>0?'+':'−'}<span class="num">${money(Math.abs(a.amount))}</span>
+                <button onclick="removeAdj('${x.id}',${i})" class="text-ink-300 mr-1">✕</button></span>
+            </div>`).join('')}
+          </div>`:''}
+        <div class="flex flex-wrap gap-1.5 mt-3">
+          <button onclick="openAdj('${x.id}')" class="btn-ghost text-amber-600 border-amber-100">إضافة مبلغ</button>
+          <button onclick="openMaintEdit('${x.id}')" class="btn-ghost">تعديل</button>
+          ${x.status!=='done'?`<button onclick="finishMaint('${x.id}')" class="btn-ghost text-teal-700 border-teal-100">قيد نهائي</button>`
+                             :`<button onclick="reopenMaint('${x.id}')" class="btn-ghost">إرجاع لقيد التنفيذ</button>`}
+          <button onclick="deleteMaint('${x.id}')" class="btn-ghost text-rose-600 border-rose-100">حذف</button>
         </div>
       </div>
     </div>`;}).join('');
 }
 
+
+/** إجمالي التكلفة = التقديري + كل الحركات */
+const maintTotal = x => Number(x.estimated_cost??x.cost??0) + (x.adjustments||[]).reduce((s,a)=>s+Number(a.amount||0),0);
+
+/** إعادة مزامنة قيد المصروف مع التكلفة الحالية — تُستدعى بعد أي تعديل */
+async function syncMaintExpense(x){
+  await db.from('expenses').delete().eq('ref_id',x.id).eq('source','maintenance');
+  if(x.status==='done') await postMaintExpense(x);
+}
+
+function openAdj(id){
+  const x=maint.find(m=>m.id===id);
+  const w=document.createElement('div'); w.id='modal'; w.className='fixed inset-0 z-40 grid place-items-center p-4';
+  w.innerHTML=`<div class="absolute inset-0 bg-ink-900/45" onclick="closeModal()"></div>
+  <div class="card relative w-full max-w-sm p-6 fade">
+    <h3 class="font-bold text-xl">إضافة مبلغ على العمل</h3>
+    <p class="text-ink-500 text-sm mt-1 mb-5">${MAINT_CATS[x.category]||x.category} · ${x.building_name} — الحالي <span class="num">${money(x.cost)}</span> ر.س</p>
+    <label class="eyebrow block mb-2">المبلغ (ر.س)</label>
+    <input id="aj_a" type="number" class="field mb-1.5" placeholder="مثال: 500">
+    <p class="text-xs text-ink-500 mb-4">اكتب رقمًا موجبًا للزيادة، وسالبًا للنقص (مثل ‎-200).</p>
+    <label class="eyebrow block mb-2">السبب</label>
+    <input id="aj_n" class="field mb-4" placeholder="مثال: مواد إضافية للتشطيب">
+    <label class="eyebrow block mb-2">التاريخ</label>
+    <input id="aj_d" type="date" class="field" value="${today()}">
+    <p id="aj_err" class="text-rose-600 text-sm mt-3 hidden"></p>
+    <div class="flex gap-2 mt-5">
+      <button onclick="saveAdj('${x.id}')" class="btn-primary flex-1">إضافة</button>
+      <button onclick="closeModal()" class="btn-ghost px-4">إلغاء</button>
+    </div>
+  </div>`;
+  document.body.appendChild(w);
+}
+
+async function saveAdj(id){
+  const amount=Number(document.getElementById('aj_a').value), err=document.getElementById('aj_err');
+  err.classList.add('hidden');
+  if(!amount){ err.textContent='أدخل مبلغًا (موجبًا للزيادة أو سالبًا للنقص).'; err.classList.remove('hidden'); return; }
+  const x=maint.find(m=>m.id===id);
+  const adjustments=[...(x.adjustments||[]),{amount,note:document.getElementById('aj_n').value.trim()||null,date:document.getElementById('aj_d').value}];
+  const cost=Number(x.estimated_cost??x.cost??0)+adjustments.reduce((s,a)=>s+Number(a.amount||0),0);
+  const {error}=await db.from('maintenance').update({adjustments,cost}).eq('id',id);
+  if(error){ err.textContent='تعذّر الحفظ: '+error.message; err.classList.remove('hidden'); return; }
+  await syncMaintExpense({...x,adjustments,cost});
+  closeModal(); maintView();
+}
+
+async function removeAdj(id,idx){
+  const x=maint.find(m=>m.id===id);
+  if(!confirm('حذف هذه الحركة من تكلفة العمل؟')) return;
+  const adjustments=(x.adjustments||[]).filter((_,i)=>i!==idx);
+  const cost=Number(x.estimated_cost??x.cost??0)+adjustments.reduce((s,a)=>s+Number(a.amount||0),0);
+  const {error}=await db.from('maintenance').update({adjustments,cost}).eq('id',id);
+  if(error) return showError('تعذّر الحذف: '+error.message);
+  await syncMaintExpense({...x,adjustments,cost});
+  maintView();
+}
+
+function openMaintEdit(id){
+  const x=maint.find(m=>m.id===id);
+  const adjSum=(x.adjustments||[]).reduce((s,a)=>s+Number(a.amount||0),0);
+  const w=document.createElement('div'); w.id='modal'; w.className='fixed inset-0 z-40 grid place-items-center p-4 overflow-y-auto';
+  w.innerHTML=`<div class="absolute inset-0 bg-ink-900/45" onclick="closeModal()"></div>
+  <div class="card relative w-full max-w-md p-6 fade my-8">
+    <h3 class="font-bold text-xl mb-5">تعديل عمل الصيانة</h3>
+    <div class="grid grid-cols-2 gap-3">
+      <div><label class="eyebrow block mb-2">البند</label>
+        <select id="me_c" class="field">${Object.entries(MAINT_CATS).map(([k,v])=>`<option value="${k}" ${x.category===k?'selected':''}>${v}</option>`).join('')}</select></div>
+      <div><label class="eyebrow block mb-2">الحالة</label>
+        <select id="me_st" class="field">${Object.entries(MAINT_ST).map(([k,v])=>`<option value="${k}" ${(x.status||'done')===k?'selected':''}>${v}</option>`).join('')}</select></div>
+      <div><label class="eyebrow block mb-2">التكلفة التقديرية</label><input id="me_est" type="number" class="field" value="${x.estimated_cost??x.cost??''}"></div>
+      <div><label class="eyebrow block mb-2">التاريخ</label><input id="me_d" type="date" class="field" value="${x.service_date||''}"></div>
+      <div class="col-span-2"><label class="eyebrow block mb-2">المورد / الفني</label><input id="me_v" class="field" value="${x.vendor||''}"></div>
+      <div class="col-span-2"><label class="eyebrow block mb-2">الوصف</label><input id="me_desc" class="field" value="${(x.description||'').replace(/"/g,'&quot;')}"></div>
+    </div>
+    <p class="text-sm text-ink-500 mt-3">الحركات المسجّلة: <span class="num">${money(adjSum)}</span> ر.س — الإجمالي يُحتسب تلقائيًا بعد الحفظ.</p>
+    <p id="me_err" class="text-rose-600 text-sm mt-3 hidden"></p>
+    <div class="flex gap-2 mt-5">
+      <button onclick="saveMaintEdit('${x.id}')" class="btn-primary flex-1">حفظ</button>
+      <button onclick="closeModal()" class="btn-ghost px-4">إلغاء</button>
+    </div>
+  </div>`;
+  document.body.appendChild(w);
+}
+
+async function saveMaintEdit(id){
+  const x=maint.find(m=>m.id===id), err=document.getElementById('me_err');
+  const estimated_cost=Number(document.getElementById('me_est').value);
+  err.classList.add('hidden');
+  if(!estimated_cost){ err.textContent='التكلفة التقديرية مطلوبة.'; err.classList.remove('hidden'); return; }
+  const status=document.getElementById('me_st').value;
+  const cost=estimated_cost+(x.adjustments||[]).reduce((s,a)=>s+Number(a.amount||0),0);
+  const patch={ category:document.getElementById('me_c').value, status, estimated_cost, cost,
+    service_date:document.getElementById('me_d').value, vendor:document.getElementById('me_v').value.trim()||null,
+    description:document.getElementById('me_desc').value.trim()||null };
+  const {error}=await db.from('maintenance').update(patch).eq('id',id);
+  if(error){ err.textContent='تعذّر الحفظ: '+error.message; err.classList.remove('hidden'); return; }
+  await syncMaintExpense({...x,...patch});
+  closeModal(); maintView();
+}
+
+async function reopenMaint(id){
+  const x=maint.find(m=>m.id===id);
+  if(!confirm('إرجاع العمل لقيد التنفيذ؟ سيُسحب قيد التكلفة من المصروفات حتى يُقفل نهائيًا.')) return;
+  await db.from('maintenance').update({status:'doing'}).eq('id',id);
+  await syncMaintExpense({...x,status:'doing'});
+  maintView();
+}
+
 async function finishMaint(id){
   const x=maint.find(m=>m.id===id);
-  if(!confirm('تعليم العمل كمنجز وقيد تكلفته في المصروفات؟')) return;
+  if(!confirm(`إقفال العمل نهائيًا بمبلغ ${money(x.cost)} ر.س وقيده في المصروفات؟`)) return;
   await db.from('maintenance').update({status:'done'}).eq('id',id);
-  await postMaintExpense(x);
+  await syncMaintExpense({...x,status:'done'});
   maintView();
 }
 
