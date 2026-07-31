@@ -72,7 +72,7 @@ tailwind.config = { theme:{ extend:{
   const SUPABASE_KEY = "sb_publishable_26WQJ1wSFyt3eNDdkj2yyw_RwYDK6yf";
   const BRAND = "أصول";              // ← اسم النظام، غيّره من هنا
   const BRAND_SUB = "إدارة وتشغيل وصيانة الأصول العقارية";
-  const VERSION = "v16";                // للتأكد من أن النسخة المنشورة محدّثة
+  const VERSION = "v17";                // للتأكد من أن النسخة المنشورة محدّثة
 </script>
 
 <div id="app"></div>
@@ -95,17 +95,20 @@ const app = document.getElementById('app');
 let user=null, tab='dash', navOpen=false, ME={role:'operator',full_name:''};
 
 /* ───── الأدوار ───── */
-const ROLE_LABEL={admin:'مدير النظام',operator:'مشغّل',accountant:'محاسب',owner:'مالك',exec:'مدير تنفيذي'};
+const ROLE_LABEL={admin:'مدير النظام',operator:'مشغّل',accountant:'محاسب',owner:'صاحب الشركة',exec:'مدير تنفيذي',landlord:'مالك خارجي',none:'بلا صلاحية'};
 const ROLE_TABS={
   admin:      ['dash','collection','buildings','finance','maint','staff','leases','units','tenants','settings'],
   operator:   ['dash','collection','buildings','finance','maint','staff','leases','units','tenants','settings'],
   accountant: ['dash','collection','buildings','finance','maint','leases','units','tenants'],
   owner:      ['dash','collection','buildings','finance','maint','leases','units'],
   exec:       ['dash','collection','buildings','finance','maint','staff','leases','units','tenants'],
+  landlord:   ['dash','buildings','finance','maint'],
+  none:       [],
 };
-const canEdit = () => ['admin','operator'].includes(ME.role);
+const canEdit  = () => ['admin','operator'].includes(ME.role);
+const canAdmin = () => ME.role==='admin';
 const canMoney = () => ['admin','operator','accountant'].includes(ME.role);
-const allowed = t => (ROLE_TABS[ME.role]||ROLE_TABS.operator).includes(t);
+const allowed = t => (ROLE_TABS[ME.role]||[]).includes(t);
 const RO = () => canEdit()?'' : 'style="display:none"';        // إخفاء أدوات التعديل عن غير المخوّل
 
 /* سجل التدقيق */
@@ -189,12 +192,33 @@ async function init(){
   paint();
 }
 async function loadMe(){
-  const {data}=await db.from('app_users').select('*').eq('email',user.email).maybeSingle();
-  ME = data || {role:'operator',full_name:user.email};
-  if(!allowed(tab)) tab=(ROLE_TABS[ME.role]||['dash'])[0];
+  const {data,error}=await db.from('app_users').select('*').ilike('email',user.email).maybeSingle();
+  ME = data || {role:'none',full_name:user.email,buildings:[]};
+  const t=ROLE_TABS[ME.role]||[];
+  if(!t.includes(tab)) tab=t[0]||'none';
 }
 db.auth.onAuthStateChange(async(_e,s)=>{ user=s?.user||null; if(user) await loadMe(); paint(); });
-const paint = () => user ? shell() : loginView();
+function paint(){
+  if(!user) return loginView();
+  if(!(ROLE_TABS[ME.role]||[]).length) return noAccessView();
+  shell();
+}
+
+function noAccessView(){
+  app.innerHTML=`
+  <div class="min-h-screen grid place-items-center px-5">
+    <div class="card p-8 max-w-sm text-center fade">
+      <div class="w-12 h-12 rounded-xl bg-amber-100 mx-auto grid place-items-center mb-4">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#A97015" stroke-width="1.8">
+          <path d="M12 9v4m0 4h.01M10.3 3.9L1.8 18a2 2 0 001.7 3h17a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z"/></svg>
+      </div>
+      <h1 class="text-xl font-bold">لا توجد صلاحية لهذا الحساب</h1>
+      <p class="text-ink-500 text-sm mt-2">${user.email}</p>
+      <p class="text-ink-500 text-sm mt-3">تواصل مع مدير النظام لإسناد دور لحسابك.</p>
+      <button onclick="logout()" class="btn-ghost w-full mt-6">تسجيل الخروج</button>
+    </div>
+  </div>`;
+}
 
 function loginView(){
   app.innerHTML=`
@@ -1957,22 +1981,33 @@ async function settingsView(){
       <p class="text-sm text-ink-500">${ROLE_LABEL[ME.role]||ME.role}</p>
     </div>
 
-    <div class="card p-5" ${ME.role==='admin'||ME.role==='operator'?'':'style="display:none"'}>
+    <div class="card p-5" ${canAdmin()?'':'style="display:none"'}>
       <h2 class="font-bold text-lg mb-1">الصلاحيات</h2>
-      <p class="text-sm text-ink-500 mb-4">أضف بريد الشخص هنا بعد إنشاء حسابه في Supabase، وحدّد دوره.</p>
+      <p class="text-sm text-ink-500 mb-1">أضف بريد الشخص بعد إنشاء حسابه في Supabase، وحدّد دوره.</p>
+      <p class="text-xs text-amber-600 mb-4">أي حساب غير مضاف هنا لا يملك أي صلاحية على البيانات.</p>
       <div class="grid sm:grid-cols-3 gap-3">
         <input id="au_e" class="field" dir="ltr" placeholder="البريد الإلكتروني">
         <input id="au_n" class="field" placeholder="الاسم">
-        <select id="au_r" class="field">${Object.entries(ROLE_LABEL).map(([k,v])=>`<option value="${k}">${v}</option>`).join('')}</select>
+        <select id="au_r" class="field" onchange="toggleScopeBox()">
+          ${Object.entries(ROLE_LABEL).filter(([k])=>k!=='none').map(([k,v])=>`<option value="${k}">${v}</option>`).join('')}
+        </select>
+      </div>
+      <div id="au_scope" class="hidden mt-3">
+        <p class="eyebrow mb-2">المباني المسموح له بالاطلاع عليها</p>
+        <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+          ${buildings.map(b=>`<label class="flex items-center gap-2 border border-paper-200 rounded-lg px-3 py-2 text-sm">
+            <input type="checkbox" class="au_b" value="${b.name}"> ${b.name}</label>`).join('')||'<p class="text-sm text-ink-300">لا مبانٍ مسجّلة</p>'}
+        </div>
       </div>
       <button onclick="addAppUser()" class="btn-primary mt-3">حفظ</button>
       <div class="mt-5 space-y-2">
         ${appUsers.map(u=>`<div class="flex items-center justify-between gap-3 border border-paper-100 rounded-lg p-3">
           <div class="min-w-0"><p class="font-semibold truncate">${u.full_name||u.email}</p>
-            <p class="text-xs text-ink-500 num truncate">${u.email}</p></div>
+            <p class="text-xs text-ink-500 num truncate">${u.email}</p>
+            ${u.role==='landlord'?`<p class="text-xs text-amber-600 truncate">${(u.buildings||[]).length?'مباني: '+(u.buildings||[]).join('، '):'لم تُحدَّد مبانيه — لن يرى شيئًا'}</p>`:''}</div>
           <div class="flex items-center gap-2 shrink-0">
-            <select onchange="setRole('${u.id}',this.value)" class="field w-auto py-1 text-sm">
-              ${Object.entries(ROLE_LABEL).map(([k,v])=>`<option value="${k}" ${u.role===k?'selected':''}>${v}</option>`).join('')}
+            <select onchange="setRole('${u.id}',this.value)" class="field w-auto py-1 text-sm" ${u.email.toLowerCase()===String(user.email).toLowerCase()?'disabled title="لا يمكنك تغيير دور حسابك"':''}>
+              ${Object.entries(ROLE_LABEL).filter(([k])=>k!=='none').map(([k,v])=>`<option value="${k}" ${u.role===k?'selected':''}>${v}</option>`).join('')}
             </select>
             <button onclick="delAppUser('${u.id}')" class="btn-ghost text-rose-600 border-rose-100">حذف</button>
           </div>
@@ -1998,7 +2033,7 @@ async function settingsView(){
     <div class="card p-5">
       <h2 class="font-bold text-lg mb-1">تصدير ونسخ احتياطي</h2>
       <p class="text-sm text-ink-500 mb-4">ملفات CSV تفتح مباشرة في Excel.</p>
-      <div class="flex flex-wrap gap-2">
+      <div class="flex flex-wrap gap-2" ${canMoney()?'':'style="display:none"'}>
         ${['units','tenants','leases','payments','expenses','maintenance'].map(t=>
           `<button onclick="exportTable('${t}')" class="btn-ghost">${({units:'الوحدات',tenants:'المستأجرون',leases:'العقود',payments:'الدفعات',expenses:'المصروفات',maintenance:'الصيانة'})[t]}</button>`).join('')}
       </div>
@@ -2066,16 +2101,24 @@ async function exportTable(name){
   a.download=`${name}-${today()}.csv`; a.click(); URL.revokeObjectURL(a.href);
 }
 
+function toggleScopeBox(){
+  const r=document.getElementById('au_r').value;
+  document.getElementById('au_scope').classList.toggle('hidden', r!=='landlord');
+}
+
 async function addAppUser(){
   const email=document.getElementById('au_e').value.trim().toLowerCase();
   if(!email) return showError('أدخل البريد الإلكتروني.');
+  const role=document.getElementById('au_r').value;
+  const scope=[...document.querySelectorAll('.au_b:checked')].map(c=>c.value);
+  if(role==='landlord' && !scope.length) return showError('حدّد مباني المالك الخارجي، وإلا لن يرى شيئًا.');
   const {error}=await db.from('app_users').insert({email,full_name:document.getElementById('au_n').value.trim()||null,
-    role:document.getElementById('au_r').value});
+    role, buildings: role==='landlord'?scope:[]});
   if(error) return showError(error.code==='23505'?'هذا البريد مضاف مسبقًا.':'تعذّر الحفظ: '+error.message);
   settingsView();
 }
 async function setRole(id,role){
-  const {error}=await db.from('app_users').update({role}).eq('id',id);
+  const {error}=await db.from('app_users').update({role, ...(role!=='landlord'?{buildings:[]}:{})}).eq('id',id);
   if(error) return showError('تعذّر التغيير: '+error.message);
   await logAction('role','app_user',id,ROLE_LABEL[role]);
 }
