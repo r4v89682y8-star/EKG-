@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <title>عُمران — إدارة الأملاك</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -71,19 +72,32 @@ tailwind.config = { theme:{ extend:{
   const SUPABASE_KEY = "sb_publishable_26WQJ1wSFyt3eNDdkj2yyw_RwYDK6yf";
   const BRAND = "أصول";              // ← اسم النظام، غيّره من هنا
   const BRAND_SUB = "إدارة الأملاك";
-  const VERSION = "v9";                // للتأكد من أن النسخة المنشورة محدّثة
+  const VERSION = "v12";                // للتأكد من أن النسخة المنشورة محدّثة
 </script>
 
 <div id="app"></div>
 
 <script>
 const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+/* مُبلِّغ الأخطاء: يعرض أي خلل على الشاشة مباشرة بدل بقائه مخفيًا في الكونسول */
+function showError(msg){
+  let b=document.getElementById('errbar');
+  if(!b){ b=document.createElement('div'); b.id='errbar';
+    b.style.cssText='position:fixed;bottom:0;right:0;left:0;z-index:99;background:#A93838;color:#fff;padding:.7rem 1rem;font-size:.85rem;direction:rtl;display:flex;justify-content:space-between;gap:1rem;align-items:flex-start';
+    document.body.appendChild(b); }
+  b.innerHTML='<span style="flex:1">'+msg+'</span><button onclick="this.parentNode.remove()" style="font-weight:700">إغلاق</button>';
+}
+window.onerror=(m,src,line)=>{ showError('خطأ: '+m+' (سطر '+line+')'); };
+window.onunhandledrejection=e=>{ showError('خطأ: '+(e.reason?.message||e.reason)); };
+const guard=fn=>(...a)=>{ try{ const r=fn(...a); if(r&&r.catch) r.catch(e=>showError('خطأ: '+(e.message||e))); return r; }catch(e){ showError('خطأ: '+(e.message||e)); } };
 const app = document.getElementById('app');
 let user=null, tab='dash', navOpen=false;
 
 const TABS = [
   { id:'dash',       label:'لوحة المالك', icon:'M3 13h4v8H3zM10 3h4v18h-4zM17 9h4v12h-4z' },
   { id:'collection', label:'التحصيل',     icon:'M12 1v22M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6' },
+  { id:'buildings',  label:'المباني',     icon:'M3 21h18M5 21V7l7-4 7 4v14M9 21v-5h6v5' },
   { id:'finance',    label:'المالية',     icon:'M3 3v18h18M7 15l4-5 3 3 5-7' },
   { id:'maint',      label:'الصيانة',     icon:'M14.7 6.3a4 4 0 01-5.4 5.4L4 17v3h3l5.3-5.3a4 4 0 015.4-5.4l-2.1 2.1-2.8-2.8z' },
   { id:'staff',      label:'العمال والرواتب', icon:'M17 20v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2M13 7a3.5 3.5 0 11-7 0 3.5 3.5 0 017 0M22 11h-6' },
@@ -99,26 +113,35 @@ const THIS_YEAR = String(new Date().getFullYear());
 function setYear(y){ YR=y; route(); }
 const MONTHS = ['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
 
-const yearPicker = () => {
-  const y=Number(THIS_YEAR), list=[y+1,y,y-1,y-2,y-3];
-  return `<div class="inline-flex items-center gap-1 bg-white border border-paper-200 rounded-xl p-1">
-    ${list.map(v=>`<button onclick="setYear('${v}')" class="px-3 py-1.5 rounded-lg text-sm ${String(v)===YR?'bg-teal-900 text-white font-semibold':'text-ink-500 hover:bg-paper-50'}"><span class="num">${v}</span></button>`).join('')}
-  </div>`;
-};
+/* ───── الفترة: شهر أو سنة ───── */
+let PMODE='year';                                   // year | month
+let PMONTH=String(new Date().getMonth()+1).padStart(2,'0');
 
-/** مجاميع سنة بعينها — للمقارنة بين السنوات */
-function yearTotals(y){
-  const p=payments.filter(x=>x.due_date.startsWith(y));
-  const e=expenses.filter(x=>x.expense_date.startsWith(y));
-  const contracted=sumAmt(p), collected=sumPaid(p.filter(x=>x.status==='paid'));
-  const exp=e.reduce((s,x)=>s+Number(x.amount),0);
-  return { contracted, collected, exp, net:collected-exp, rate:contracted?Math.round(collected/contracted*100):0 };
+const periodKey   = () => PMODE==='year' ? YR : `${YR}-${PMONTH}`;
+const inPeriod    = d => !!d && d.startsWith(periodKey());
+const periodLabel = () => PMODE==='year' ? `سنة ${YR}` : `${MONTHS[Number(PMONTH)-1]} ${YR}`;
+
+function setPeriod(mode,val){
+  if(mode==='mode') PMODE=val;
+  else if(mode==='year') YR=val;
+  else PMONTH=val;
+  route();
 }
-const delta = (now,prev) => {
-  if(!prev) return '';
-  const d=Math.round((now-prev)/Math.abs(prev)*100);
-  if(!isFinite(d)||d===0) return '';
-  return `<span class="text-xs font-bold ${d>0?'text-teal-600':'text-rose-600'}">${d>0?'▲':'▼'}<span class="num">${Math.abs(d)}</span>%</span>`;
+
+const periodPicker = () => {
+  const y=Number(THIS_YEAR), years=[y+1,y,y-1,y-2];
+  return `<div class="flex flex-wrap items-center gap-2">
+    <div class="inline-flex bg-white border border-paper-200 rounded-xl p-1">
+      <button onclick="setPeriod('mode','year')"  class="px-3 py-1.5 rounded-lg text-sm ${PMODE==='year'?'bg-teal-900 text-white font-semibold':'text-ink-500'}">سنوي</button>
+      <button onclick="setPeriod('mode','month')" class="px-3 py-1.5 rounded-lg text-sm ${PMODE==='month'?'bg-teal-900 text-white font-semibold':'text-ink-500'}">شهري</button>
+    </div>
+    ${PMODE==='month'?`<select onchange="setPeriod('month',this.value)" class="field w-auto py-1.5 text-sm">
+      ${MONTHS.map((m,i)=>{const v=String(i+1).padStart(2,'0');return `<option value="${v}" ${v===PMONTH?'selected':''}>${m}</option>`;}).join('')}
+    </select>`:''}
+    <select onchange="setPeriod('year',this.value)" class="field w-auto py-1.5 text-sm num">
+      ${years.map(v=>`<option value="${v}" ${String(v)===YR?'selected':''}>${v}</option>`).join('')}
+    </select>
+  </div>`;
 };
 
 /** حارس ضد الضغط المزدوج على أزرار الحفظ */
@@ -146,6 +169,7 @@ function loginView(){
         </div>
         <h1 class="text-3xl font-bold">${BRAND}</h1>
         <p class="text-ink-500 mt-1">${BRAND_SUB}</p>
+        <p class="text-xs text-ink-300 mt-2">الإصدار <span class="num">${VERSION}</span></p>
       </div>
       <div class="card p-7">
         <label class="eyebrow block mb-2">البريد الإلكتروني</label>
@@ -177,7 +201,7 @@ function shell(){
     <div class="flex-1 min-w-0">
       <header class="lg:hidden sticky top-0 z-20 bg-white/95 backdrop-blur border-b border-paper-100 px-4 h-14 flex items-center justify-between">
         <button onclick="toggleNav()" aria-label="القائمة"><svg width="24" height="24" viewBox="0 0 24 24" stroke="#39434F" stroke-width="1.8" fill="none"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
-        <span class="font-bold display">${BRAND}</span>
+        <span class="font-bold display">${BRAND} <span class="text-xs font-normal text-ink-300 num">${VERSION}</span></span>
         <button onclick="logout()" class="text-sm text-ink-500">خروج</button>
       </header>
       <div id="drawer" class="hidden lg:hidden fixed inset-0 z-30">
@@ -200,15 +224,23 @@ const navBtn = t => `<button onclick="go('${t.id}')" class="navlink ${tab===t.id
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="${t.icon}"/></svg>${t.label}</button>`;
 function toggleNav(){ navOpen=!navOpen; document.getElementById('drawer').classList.toggle('hidden',!navOpen); }
 function go(t){ tab=t; navOpen=false; shell(); }
-function route(){ ({dash:dashView,collection:collectionView,finance:financeView,maint:maintView,staff:staffView,leases:leasesView,units:unitsView,tenants:tenantsView})[tab](); }
+function route(){ ({dash:dashView,collection:collectionView,buildings:buildingsView,finance:financeView,maint:maintView,staff:staffView,leases:leasesView,units:unitsView,tenants:tenantsView})[tab](); }
 const head=(t,s)=>`<div class="mb-7"><h1 class="text-2xl font-bold">${t}</h1><p class="text-ink-500 mt-1">${s}</p></div>`;
 const empty=m=>`<div class="card p-10 text-center text-ink-500">${m}</div>`;
 
 /* ───── data ───── */
-let tenants=[],units=[],leases=[],payments=[],expenses=[],readings=[],maint=[],staff=[];
+let tenants=[],units=[],leases=[],payments=[],expenses=[],readings=[],maint=[],staff=[],buildings=[];
 const load = {
   tenants: async q=>{ let r=db.from('tenants').select('*').order('created_at',{ascending:false}); if(q) r=r.or(`full_name.ilike.%${q}%,phone.ilike.%${q}%`); tenants=(await r).data||[]; },
   units:   async ()=>{ units=(await db.from('units').select('*').order('building_name')).data||[]; },
+  buildings: async ()=>{
+    buildings=(await db.from('buildings').select('*').order('name')).data||[];
+    // أي مبنى مذكور في الوحدات ولم يُسجّل بعد يظهر افتراضيًا كمملوك
+    const known=new Set(buildings.map(b=>b.name));
+    [...new Set(units.map(u=>u.building_name))].filter(n=>n&&!known.has(n))
+      .forEach(n=>buildings.push({name:n,ownership:'owned',management_fee_pct:0,_ghost:true}));
+    buildings.sort((a,b)=>a.name.localeCompare(b.name));
+  },
   maint:   async ()=>{ maint=(await db.from('maintenance').select('*').order('service_date',{ascending:false})).data||[]; },
   staff:   async ()=>{ staff=(await db.from('employees').select('*').order('full_name')).data||[]; },
   leases:  async ()=>{ leases=(await db.from('leases').select('*, tenants(full_name,phone), units(building_name,unit_number)').order('created_at',{ascending:false})).data||[]; },
@@ -219,132 +251,137 @@ const load = {
 const sumPaid = a => a.reduce((s,p)=>s+Number(p.paid_amount??p.amount),0);
 const sumAmt  = a => a.reduce((s,p)=>s+Number(p.amount),0);
 
-/* ───── لوحة المالك ───── */
+/* ───── لوحة المالك: فصل الذمم بين ما نملكه وما نديره للغير ───── */
 async function dashView(){
   const m=document.getElementById('main');
-  m.innerHTML=head('لوحة المالك','صورة كاملة عن أداء المحفظة العقارية')+`<p class="text-ink-500">جارٍ التحميل…</p>`;
-  await Promise.all([load.units(),load.leases(),load.payments(),load.expenses()]);
+  m.innerHTML=`<p class="text-ink-500">جارٍ التحميل…</p>`;
+  await Promise.all([load.units(),load.leases(),load.payments(),load.expenses(),load.buildings()]);
 
-  const t=today();
-  const yearPays = payments.filter(p=>p.due_date.startsWith(YR));
-  const collected = sumPaid(yearPays.filter(p=>p.status==='paid'));
-  const overdue   = sumAmt(yearPays.filter(p=>p.status==='pending' && p.due_date<t));
-  const contracted= sumAmt(yearPays);
-  const yearExp   = expenses.filter(e=>e.expense_date.startsWith(YR));
-  const expTotal  = yearExp.reduce((s,e)=>s+Number(e.amount),0);
-  const net       = collected-expTotal;
-  const occ       = units.filter(u=>u.status==='occupied').length;
-  const rate      = units.length?Math.round(occ/units.length*100):0;
-  const rateColl  = contracted?Math.round(collected/contracted*100):0;
-
-  // الخطة السنوية: متوقع مقابل محصّل لكل شهر
-  const plan = MONTHS.map((label,i)=>{
-    const key = `${YR}-${String(i+1).padStart(2,'0')}`;
-    const rows = payments.filter(p=>p.due_date.startsWith(key));
-    return { label, expected:sumAmt(rows), collected:sumPaid(rows.filter(p=>p.status==='paid')) };
-  });
-  const peak = Math.max(1,...plan.map(p=>p.expected));
-
-  // أداء كل مبنى
-  const buildings = [...new Set(units.map(u=>u.building_name))].map(b=>{
-    const bu = units.filter(u=>u.building_name===b);
-    const ids = bu.map(u=>u.id);
-    const bp = payments.filter(p=>ids.includes(p.leases?.unit_id) && p.due_date.startsWith(YR));
-    return {
-      name:b, total:bu.length, occupied:bu.filter(u=>u.status==='occupied').length,
-      contracted:sumAmt(bp), collected:sumPaid(bp.filter(p=>p.status==='paid')),
-      overdue:sumAmt(bp.filter(p=>p.status==='pending'&&p.due_date<t)),
-      expenses:yearExp.filter(e=>e.building_name===b).reduce((s,e)=>s+Number(e.amount),0),
-    };
-  });
-
-  const cur=yearTotals(YR), prev=yearTotals(String(Number(YR)-1));
+  const rows=buildings.map(b=>bookFor(b.name));
+  const owned  =rows.filter(r=>r.ownership==='owned');
+  const managed=rows.filter(r=>r.ownership==='managed');
+  const sum=(a,k)=>a.reduce((s,x)=>s+x[k],0);
 
   m.innerHTML=`
-  <div class="mb-7 flex flex-wrap items-end justify-between gap-3">
-    <div><h1 class="text-2xl font-bold">لوحة المالك</h1><p class="text-ink-500 mt-1">أداء المحفظة لسنة <span class="num">${YR}</span></p></div>
-    ${yearPicker()}
+  <div class="mb-6 flex flex-wrap items-end justify-between gap-3">
+    <div><h1 class="text-2xl font-bold">لوحة المالك</h1><p class="text-ink-500 mt-1">${periodLabel()}</p></div>
+    ${periodPicker()}
   </div>
-  <div class="fade space-y-6">
-    <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
-      ${stat('الإيراد المتعاقد',contracted,'كامل السنة','ink-900',delta(cur.contracted,prev.contracted))}
-      ${stat('المحصّل',collected,rateColl+'% من المتعاقد','teal-700',delta(cur.collected,prev.collected))}
-      ${stat('المتأخرات',overdue,'مستحقة ولم تُسدد','rose-600','')}
-      ${stat('صافي التشغيل',net,'محصّل − مصروفات',net>=0?'teal-700':'rose-600',delta(cur.net,prev.net))}
-    </div>
+  <div class="fade space-y-7">
 
-    <div class="grid lg:grid-cols-3 gap-3">
-      <div class="card p-5">
-        <p class="eyebrow">الإشغال</p>
-        <p class="text-3xl font-bold display mt-2"><span class="num">${rate}</span>%</p>
-        <p class="text-sm text-ink-500 mt-1"><span class="num">${occ}</span> مؤجّرة من <span class="num">${units.length}</span></p>
-        <div class="flex gap-1 mt-4">${units.map(u=>`<span class="h-2.5 flex-1 rounded-full ${u.status==='occupied'?'bg-teal-700':'bg-paper-200'}"></span>`).join('')||'<span class="text-xs text-ink-300">لا وحدات</span>'}</div>
-      </div>
-      <div class="card p-5">
-        <p class="eyebrow">المصروفات التشغيلية</p>
-        <p class="text-3xl font-bold display mt-2 text-amber-600"><span class="num">${money(expTotal)}</span></p>
-        <p class="text-sm text-ink-500 mt-1">${collected?`<span class="num">${Math.round(expTotal/collected*100)}</span>% من المحصّل`:'—'}</p>
-      </div>
-      <div class="card p-5">
-        <p class="eyebrow">العقود السارية</p>
-        <p class="text-3xl font-bold display mt-2"><span class="num">${leases.filter(l=>l.status==='active').length}</span></p>
-        <p class="text-sm text-ink-500 mt-1">من <span class="num">${leases.length}</span> عقد مسجّل</p>
-      </div>
+    ${bookBlock('مبانٍ مملوكة', owned, 'الإيراد والصافي يخصّ الشركة بالكامل')}
+    ${bookBlock('مبانٍ تحت الإدارة', managed, 'الصافي يخصّ المُلّاك، وللشركة أتعاب الإدارة')}
+
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      ${stat('إجمالي المحصّل', sum(rows,'collected'), 'كل المباني','teal-700')}
+      ${stat('إجمالي المتأخرات', sum(rows,'overdue'), 'مستحقة ولم تُسدد','rose-600')}
+      ${stat('إجمالي المصروفات', sum(rows,'exp'), 'تشغيل وصيانة ورواتب','amber-600')}
+      ${stat('أتعاب الإدارة', sum(managed,'fee'), 'من المباني المُدارة','ink-900')}
     </div>
 
     <div class="card p-5">
-      <div class="flex items-baseline justify-between mb-5">
-        <h2 class="font-bold text-lg">الخطة السنوية ${YR}</h2>
-        <p class="text-xs text-ink-500">■ متوقع &nbsp; <span class="text-teal-700">■</span> محصّل</p>
+      <div class="flex items-end justify-between mb-4">
+        <div><p class="eyebrow">الإشغال</p>
+          <p class="text-3xl font-bold display mt-1"><span class="num">${units.length?Math.round(units.filter(u=>u.status==='occupied').length/units.length*100):0}</span>%</p></div>
+        <p class="text-sm text-ink-500"><span class="num">${units.filter(u=>u.status==='occupied').length}</span> مؤجّرة من <span class="num">${units.length}</span> · <span class="num">${leases.filter(l=>l.status==='active').length}</span> عقد ساري</p>
       </div>
-      <div class="flex items-end gap-1.5 h-40" dir="rtl">
-        ${plan.map(p=>`
-          <div class="flex-1 flex flex-col items-center gap-1.5 h-full justify-end" title="${p.label}: متوقع ${money(p.expected)} · محصّل ${money(p.collected)}">
-            <div class="w-full relative bg-paper-100 rounded-t" style="height:${Math.max(3,p.expected/peak*100)}%">
-              <div class="absolute bottom-0 w-full bg-teal-700 rounded-t" style="height:${p.expected?p.collected/p.expected*100:0}%"></div>
-            </div>
-            <span class="text-[.62rem] text-ink-500 whitespace-nowrap">${p.label.slice(0,3)}</span>
-          </div>`).join('')}
-      </div>
+      <div class="flex gap-1 flex-wrap">${units.map(u=>`<span title="${u.building_name} ${u.unit_number}" class="h-5 flex-1 min-w-[10px] rounded ${u.status==='occupied'?'bg-teal-700':u.status==='maintenance'?'bg-amber-600':'bg-paper-200'}"></span>`).join('')||'<span class="text-sm text-ink-300">لا وحدات</span>'}</div>
     </div>
-
-    ${(()=>{ const ys=[...new Set([...payments.map(p=>p.due_date.slice(0,4)),...expenses.map(e=>e.expense_date.slice(0,4))])].sort().reverse();
-      return ys.length>1?`
-      <div class="card p-5 overflow-x-auto">
-        <h2 class="font-bold text-lg mb-4">الأداء عبر السنوات</h2>
-        <table class="w-full min-w-[520px]">
-          <thead><tr><th>السنة</th><th>متعاقد</th><th>محصّل</th><th>نسبة التحصيل</th><th>مصروفات</th><th>الصافي</th></tr></thead>
-          <tbody>${ys.map(y=>{ const t=yearTotals(y); return `
-            <tr class="${y===YR?'bg-teal-100/40':''}">
-              <td class="font-bold"><span class="num">${y}</span></td>
-              <td><span class="num">${money(t.contracted)}</span></td>
-              <td class="text-teal-700"><span class="num">${money(t.collected)}</span></td>
-              <td><span class="num">${t.rate}</span>%</td>
-              <td class="text-amber-600"><span class="num">${money(t.exp)}</span></td>
-              <td class="font-semibold ${t.net<0?'text-rose-600':''}"><span class="num">${money(t.net)}</span></td>
-            </tr>`; }).join('')}</tbody>
-        </table>
-      </div>`:''; })()}
-
-    ${buildings.length?`
-    <div class="card p-5 overflow-x-auto">
-      <h2 class="font-bold text-lg mb-4">أداء المباني</h2>
-      <table class="w-full min-w-[560px]">
-        <thead><tr><th>المبنى</th><th>الإشغال</th><th>متعاقد</th><th>محصّل</th><th>متأخر</th><th>مصروفات</th><th>الصافي</th></tr></thead>
-        <tbody>${buildings.map(b=>`
-          <tr>
-            <td class="font-semibold">${b.name}</td>
-            <td><span class="num">${b.occupied}</span>/<span class="num">${b.total}</span></td>
-            <td><span class="num">${money(b.contracted)}</span></td>
-            <td class="text-teal-700"><span class="num">${money(b.collected)}</span></td>
-            <td class="${b.overdue?'text-rose-600':''}"><span class="num">${money(b.overdue)}</span></td>
-            <td class="text-amber-600"><span class="num">${money(b.expenses)}</span></td>
-            <td class="font-semibold"><span class="num">${money(b.collected-b.expenses)}</span></td>
-          </tr>`).join('')}</tbody>
-      </table>
-    </div>`:''}
   </div>`;
 }
+
+/** كشف مبنى واحد في الفترة المختارة — أساس فصل الذمم */
+function bookFor(name){
+  const b=buildings.find(x=>x.name===name)||{name,ownership:'owned',management_fee_pct:0};
+  const ids=units.filter(u=>u.building_name===name).map(u=>u.id);
+  const p=payments.filter(x=>ids.includes(x.leases?.unit_id)&&inPeriod(x.due_date));
+  const e=expenses.filter(x=>x.building_name===name&&inPeriod(x.expense_date));
+  const collected=sumPaid(p.filter(x=>x.status==='paid'));
+  const exp=e.reduce((s,x)=>s+Number(x.amount),0);
+  const fee=b.ownership==='managed'?Math.round(collected*Number(b.management_fee_pct||0)/100):0;
+  return { name, ownership:b.ownership, owner_name:b.owner_name, pct:Number(b.management_fee_pct||0),
+    unitsTotal:ids.length, occupied:units.filter(u=>u.building_name===name&&u.status==='occupied').length,
+    contracted:sumAmt(p), collected, overdue:sumAmt(p.filter(x=>x.status==='pending'&&x.due_date<today())),
+    exp, fee, net:collected-exp, dueOwner:collected-exp-fee };
+}
+
+function bookBlock(title, rows, note){
+  if(!rows.length) return '';
+  const s=(k)=>rows.reduce((a,x)=>a+x[k],0);
+  const managed=rows[0].ownership==='managed';
+  return `<div class="card p-5">
+    <div class="flex flex-wrap items-baseline justify-between gap-2 mb-1">
+      <h2 class="font-bold text-lg">${title} <span class="text-sm font-normal text-ink-500">(<span class="num">${rows.length}</span>)</span></h2>
+      <p class="text-xs text-ink-500">${note}</p>
+    </div>
+    <div class="overflow-x-auto mt-4">
+      <table class="w-full min-w-[620px]">
+        <thead><tr><th>المبنى</th><th>الإشغال</th><th>محصّل</th><th>متأخر</th><th>مصروفات</th>${managed?'<th>أتعاب</th><th>المستحق للمالك</th>':'<th>الصافي</th>'}<th></th></tr></thead>
+        <tbody>${rows.map(r=>`<tr>
+          <td class="font-semibold">${r.name}${r.owner_name?`<span class="block text-xs font-normal text-ink-500">${r.owner_name}</span>`:''}</td>
+          <td><span class="num">${r.occupied}</span>/<span class="num">${r.unitsTotal}</span></td>
+          <td class="text-teal-700"><span class="num">${money(r.collected)}</span></td>
+          <td class="${r.overdue?'text-rose-600':''}"><span class="num">${money(r.overdue)}</span></td>
+          <td class="text-amber-600"><span class="num">${money(r.exp)}</span></td>
+          ${managed
+            ? `<td><span class="num">${money(r.fee)}</span> <span class="text-xs text-ink-500">${r.pct}%</span></td>
+               <td class="font-bold ${r.dueOwner<0?'text-rose-600':''}"><span class="num">${money(r.dueOwner)}</span></td>`
+            : `<td class="font-bold ${r.net<0?'text-rose-600':''}"><span class="num">${money(r.net)}</span></td>`}
+          <td><button onclick="openStatement('${r.name.replace(/'/g,"\\'")}')" class="btn-ghost">كشف</button></td>
+        </tr>`).join('')}
+        <tr class="bg-paper-50">
+          <td class="font-bold">الإجمالي</td><td></td>
+          <td class="font-bold text-teal-700"><span class="num">${money(s('collected'))}</span></td>
+          <td class="font-bold ${s('overdue')?'text-rose-600':''}"><span class="num">${money(s('overdue'))}</span></td>
+          <td class="font-bold text-amber-600"><span class="num">${money(s('exp'))}</span></td>
+          ${managed?`<td class="font-bold"><span class="num">${money(s('fee'))}</span></td><td class="font-bold"><span class="num">${money(s('dueOwner'))}</span></td>`
+                   :`<td class="font-bold"><span class="num">${money(s('net'))}</span></td>`}
+          <td></td>
+        </tr></tbody>
+      </table>
+    </div>
+  </div>`;
+}
+
+/** كشف حساب تفصيلي لمبنى: بنود المصروفات + التحصيل */
+function openStatement(name){
+  const r=bookFor(name);
+  const items=expenses.filter(x=>x.building_name===name&&inPeriod(x.expense_date));
+  const byCat={};
+  items.forEach(x=>{ byCat[x.category]=(byCat[x.category]||0)+Number(x.amount); });
+  const w=document.createElement('div'); w.id='modal'; w.className='fixed inset-0 z-40 grid place-items-center p-4 overflow-y-auto';
+  w.innerHTML=`<div class="absolute inset-0 bg-ink-900/45" onclick="closeModal()"></div>
+  <div class="card relative w-full max-w-lg p-6 fade my-8">
+    <h3 class="font-bold text-xl">كشف حساب — ${name}</h3>
+    <p class="text-ink-500 text-sm mt-1 mb-5">${periodLabel()} · ${r.ownership==='managed'?`تحت الإدارة${r.owner_name?` لصالح ${r.owner_name}`:''}`:'مبنى مملوك'}</p>
+
+    <table class="w-full">
+      <tbody>
+        <tr><td class="font-semibold">الإيراد المحصّل</td><td class="text-left text-teal-700 font-bold"><span class="num">${money(r.collected)}</span></td></tr>
+        <tr><td class="text-ink-500">متأخرات لم تُحصّل</td><td class="text-left text-rose-600"><span class="num">${money(r.overdue)}</span></td></tr>
+        ${Object.entries(byCat).map(([k,v])=>`<tr><td class="text-ink-500 pr-4">− ${EXP_LABEL[k]||k}</td><td class="text-left text-amber-600"><span class="num">${money(v)}</span></td></tr>`).join('')}
+        <tr><td class="font-semibold">إجمالي المصروفات</td><td class="text-left text-amber-600 font-bold"><span class="num">${money(r.exp)}</span></td></tr>
+        ${r.ownership==='managed'?`
+        <tr><td class="font-semibold">صافي التشغيل</td><td class="text-left font-bold"><span class="num">${money(r.net)}</span></td></tr>
+        <tr><td class="text-ink-500">− أتعاب الإدارة (<span class="num">${r.pct}</span>%)</td><td class="text-left"><span class="num">${money(r.fee)}</span></td></tr>
+        <tr class="bg-teal-100/50"><td class="font-bold">المستحق للمالك</td><td class="text-left font-bold text-lg"><span class="num">${money(r.dueOwner)}</span></td></tr>`
+        :`<tr class="bg-teal-100/50"><td class="font-bold">الصافي</td><td class="text-left font-bold text-lg ${r.net<0?'text-rose-600':''}"><span class="num">${money(r.net)}</span></td></tr>`}
+      </tbody>
+    </table>
+
+    ${items.length?`<p class="eyebrow mt-6 mb-2">تفاصيل المصروفات</p>
+      <div class="space-y-1.5 max-h-52 overflow-y-auto">${items.map(x=>`
+        <div class="flex justify-between gap-3 text-sm border-b border-paper-100 pb-1.5">
+          <span class="min-w-0"><span class="font-medium">${EXP_LABEL[x.category]||x.category}</span>
+            <span class="text-ink-500">${x.notes?' · '+x.notes:''}</span></span>
+          <span class="shrink-0 text-ink-500"><span class="num">${x.expense_date}</span> · <span class="num">${money(x.amount)}</span></span>
+        </div>`).join('')}</div>`:''}
+
+    <button onclick="closeModal()" class="btn-ghost w-full mt-6">إغلاق</button>
+  </div>`;
+  document.body.appendChild(w);
+}
+
 const stat=(label,val,meta,tone,badge='')=>`
   <div class="card p-5">
     <div class="flex items-center justify-between gap-2"><p class="eyebrow">${label}</p>${badge}</div>
@@ -352,12 +389,138 @@ const stat=(label,val,meta,tone,badge='')=>`
     <p class="text-xs text-ink-500 mt-1.5">${meta}</p>
   </div>`;
 
+/* ───── المباني: تعريف الملكية وفصل الذمم ───── */
+async function buildingsView(){
+  const m=document.getElementById('main');
+  m.innerHTML=`<p class="text-ink-500">جارٍ التحميل…</p>`;
+  await Promise.all([load.units(),load.payments(),load.expenses(),load.buildings()]);
+
+  m.innerHTML=`
+  <div class="mb-6 flex flex-wrap items-end justify-between gap-3">
+    <div><h1 class="text-2xl font-bold">المباني</h1><p class="text-ink-500 mt-1">${periodLabel()} · الملكية والذمة المالية لكل مبنى</p></div>
+    ${periodPicker()}
+  </div>
+  <div class="fade">
+    <details class="card p-5 mb-6">
+      <summary class="font-semibold cursor-pointer">تسجيل مبنى</summary>
+      <div class="grid sm:grid-cols-2 gap-3 mt-4">
+        <div class="sm:col-span-2"><label class="eyebrow block mb-2">اسم المبنى</label><input id="bd_n" class="field" placeholder="مثال: العالية"></div>
+        <div><label class="eyebrow block mb-2">نوع الملكية</label>
+          <select id="bd_o" class="field" onchange="toggleOwnerFields()">
+            <option value="owned">مملوك للشركة</option>
+            <option value="managed">تحت الإدارة (ملك الغير)</option>
+          </select></div>
+        <div id="bd_owner_wrap" class="hidden"><label class="eyebrow block mb-2">اسم المالك</label><input id="bd_own" class="field"></div>
+        <div id="bd_fee_wrap" class="hidden"><label class="eyebrow block mb-2">نسبة أتعاب الإدارة (%)</label><input id="bd_f" type="number" class="field" value="0"></div>
+      </div>
+      <p id="bd_err" class="text-rose-600 text-sm mt-3 hidden"></p>
+      <button onclick="addBuilding()" class="btn-primary mt-4">حفظ المبنى</button>
+    </details>
+    <div id="bdlist" class="space-y-3"></div>
+  </div>`;
+  renderBuildings();
+}
+
+function toggleOwnerFields(){
+  const managed=document.getElementById('bd_o').value==='managed';
+  document.getElementById('bd_owner_wrap').classList.toggle('hidden',!managed);
+  document.getElementById('bd_fee_wrap').classList.toggle('hidden',!managed);
+}
+
+function renderBuildings(){
+  const box=document.getElementById('bdlist');
+  if(!buildings.length){ box.innerHTML=empty('لا مباني بعد. سجّل مبنى، ثم أضف وحداته من قسم الوحدات.'); return; }
+  box.innerHTML=buildings.map(b=>{
+    const r=bookFor(b.name), managed=b.ownership==='managed';
+    return `<div class="card p-5">
+      <div class="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p class="font-bold text-lg display">${b.name}
+            <span class="pill mr-1 ${managed?'bg-amber-100 text-amber-600':'bg-teal-100 text-teal-700'}">${managed?'تحت الإدارة':'مملوك'}</span></p>
+          <p class="text-sm text-ink-500 mt-0.5">
+            ${managed&&b.owner_name?`المالك: ${b.owner_name} · `:''}
+            <span class="num">${r.occupied}</span>/<span class="num">${r.unitsTotal}</span> وحدة مؤجّرة${managed?` · أتعاب <span class="num">${r.pct}</span>%`:''}
+            ${b._ghost?' · <span class="text-amber-600">غير مسجّل — احفظه لتحديد ملكيته</span>':''}
+          </p>
+        </div>
+        <div class="flex gap-1.5">
+          <button onclick="openStatement('${b.name.replace(/'/g,"\\'")}')" class="btn-ghost">كشف الحساب</button>
+          ${b._ghost?`<button onclick="quickRegister('${b.name.replace(/'/g,"\\'")}')" class="btn-ghost text-teal-700 border-teal-100">تسجيل</button>`
+                    :`<button onclick="openBuildingEdit('${b.id}')" class="btn-ghost">تعديل</button>`}
+        </div>
+      </div>
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4 pt-4 border-t border-paper-100 text-sm">
+        <div><p class="eyebrow">محصّل</p><p class="font-bold text-teal-700 mt-1"><span class="num">${money(r.collected)}</span></p></div>
+        <div><p class="eyebrow">متأخر</p><p class="font-bold ${r.overdue?'text-rose-600':''} mt-1"><span class="num">${money(r.overdue)}</span></p></div>
+        <div><p class="eyebrow">مصروفات</p><p class="font-bold text-amber-600 mt-1"><span class="num">${money(r.exp)}</span></p></div>
+        <div><p class="eyebrow">${managed?'المستحق للمالك':'الصافي'}</p>
+          <p class="font-bold mt-1 ${(managed?r.dueOwner:r.net)<0?'text-rose-600':''}"><span class="num">${money(managed?r.dueOwner:r.net)}</span></p></div>
+      </div>
+    </div>`;}).join('');
+}
+
+async function addBuilding(){
+  const name=document.getElementById('bd_n').value.trim(),
+        ownership=document.getElementById('bd_o').value,
+        err=document.getElementById('bd_err');
+  err.classList.add('hidden');
+  if(!name){ err.textContent='اسم المبنى مطلوب.'; err.classList.remove('hidden'); return; }
+  const {error}=await db.from('buildings').insert({ name, ownership,
+    owner_name: ownership==='managed'?(document.getElementById('bd_own').value.trim()||null):null,
+    management_fee_pct: ownership==='managed'?Number(document.getElementById('bd_f').value||0):0 });
+  if(error){ err.textContent=error.code==='23505'?'يوجد مبنى بنفس الاسم.':'تعذّر الحفظ: '+error.message; err.classList.remove('hidden'); return; }
+  buildingsView();
+}
+
+async function quickRegister(name){
+  const {error}=await db.from('buildings').insert({ name, ownership:'owned' });
+  if(error) return showError('تعذّر التسجيل: '+error.message);
+  buildingsView();
+}
+
+function openBuildingEdit(id){
+  const b=buildings.find(x=>x.id===id);
+  const w=document.createElement('div'); w.id='modal'; w.className='fixed inset-0 z-40 grid place-items-center p-4 overflow-y-auto';
+  w.innerHTML=`<div class="absolute inset-0 bg-ink-900/45" onclick="closeModal()"></div>
+  <div class="card relative w-full max-w-md p-6 fade my-8">
+    <h3 class="font-bold text-xl mb-5">تعديل المبنى</h3>
+    <label class="eyebrow block mb-2">اسم المبنى</label><input id="be_n" class="field mb-4" value="${b.name||''}">
+    <label class="eyebrow block mb-2">نوع الملكية</label>
+    <select id="be_o" class="field mb-4">
+      <option value="owned" ${b.ownership==='owned'?'selected':''}>مملوك للشركة</option>
+      <option value="managed" ${b.ownership==='managed'?'selected':''}>تحت الإدارة (ملك الغير)</option>
+    </select>
+    <div class="grid grid-cols-2 gap-3">
+      <div><label class="eyebrow block mb-2">اسم المالك</label><input id="be_own" class="field" value="${b.owner_name||''}"></div>
+      <div><label class="eyebrow block mb-2">أتعاب الإدارة (%)</label><input id="be_f" type="number" class="field" value="${b.management_fee_pct||0}"></div>
+    </div>
+    <p class="text-xs text-ink-500 mt-3">تغيير الاسم لا ينقل الوحدات تلقائيًا — عدّل أسماء المباني في الوحدات إن غيّرته.</p>
+    <p id="be_err" class="text-rose-600 text-sm mt-3 hidden"></p>
+    <div class="flex gap-2 mt-5">
+      <button onclick="saveBuildingEdit('${b.id}')" class="btn-primary flex-1">حفظ</button>
+      <button onclick="closeModal()" class="btn-ghost px-4">إلغاء</button>
+    </div>
+  </div>`;
+  document.body.appendChild(w);
+}
+
+async function saveBuildingEdit(id){
+  const name=be_n.value.trim(), ownership=be_o.value, err=document.getElementById('be_err');
+  err.classList.add('hidden');
+  if(!name){ err.textContent='اسم المبنى مطلوب.'; err.classList.remove('hidden'); return; }
+  const {error}=await db.from('buildings').update({ name, ownership,
+    owner_name: ownership==='managed'?(be_own.value.trim()||null):null,
+    management_fee_pct: ownership==='managed'?Number(be_f.value||0):0 }).eq('id',id);
+  if(error){ err.textContent='تعذّر الحفظ: '+error.message; err.classList.remove('hidden'); return; }
+  closeModal(); buildingsView();
+}
+
 /* ───── المالية ───── */
 async function financeView(){
   const m=document.getElementById('main');
   m.innerHTML=`<div class="mb-7 flex flex-wrap items-end justify-between gap-3">
     <div><h1 class="text-2xl font-bold">المالية</h1><p class="text-ink-500 mt-1">الإيرادات والمصروفات شهريًا لسنة <span class="num">${YR}</span></p></div>
-    ${yearPicker()}
+    ${periodPicker()}
   </div>`;
   await Promise.all([load.payments(),load.expenses(),load.units()]);
   const bl=[...new Set(units.map(u=>u.building_name))];
@@ -536,14 +699,34 @@ async function saveReceipt(id){
 
 /* ───── الصيانة ───── */
 const MAINT_CATS={dynamo:'دينمو / مضخة',heater:'سخان',elevator:'مصعد',plumbing:'سباكة',electrical:'كهرباء',ac:'تكييف',paint:'دهان وترميم',other:'أخرى'};
+const MAINT_ST={open:'مطلوبة',doing:'قيد التنفيذ',done:'منجزة'};
+const MAINT_ST_C={open:'bg-rose-100 text-rose-600',doing:'bg-amber-100 text-amber-600',done:'bg-teal-100 text-teal-700'};
 
 async function maintView(){
   const m=document.getElementById('main');
-  m.innerHTML=head('الصيانة','أعمال الصيانة وتوزيع تكلفتها على الوحدات المستفيدة');
-  await Promise.all([load.units(),load.maint()]);
-  const bl=[...new Set(units.map(u=>u.building_name))];
-  m.innerHTML+=`
+  m.innerHTML=`<p class="text-ink-500">جارٍ التحميل…</p>`;
+  await Promise.all([load.units(),load.maint(),load.buildings(),load.expenses()]);
+  const bl=buildings.map(b=>b.name);
+  const inP=maint.filter(x=>inPeriod(x.service_date));
+  const openN=maint.filter(x=>x.status!=='done').length;
+  const spend=inP.reduce((a,x)=>a+Number(x.cost),0);
+  const byB={}; inP.forEach(x=>{ byB[x.building_name]=(byB[x.building_name]||0)+Number(x.cost); });
+
+  m.innerHTML=`
+  <div class="mb-6 flex flex-wrap items-end justify-between gap-3">
+    <div><h1 class="text-2xl font-bold">الصيانة</h1><p class="text-ink-500 mt-1">${periodLabel()} · التكلفة تُقيَّد على المبنى أو الوحدة</p></div>
+    ${periodPicker()}
+  </div>
   <div class="fade">
+    <div class="grid grid-cols-2 lg:grid-cols-3 gap-3 mb-6">
+      ${stat('تكلفة الصيانة',spend,inP.length+' عمل في الفترة','amber-600')}
+      <div class="card p-5"><p class="eyebrow">أعمال مفتوحة</p>
+        <p class="text-2xl font-bold display mt-2 ${openN?'text-rose-600':'text-teal-700'}"><span class="num">${openN}</span></p>
+        <p class="text-xs text-ink-500 mt-1.5">${openN?'بحاجة متابعة':'لا شيء معلّق'}</p></div>
+      <div class="card p-5"><p class="eyebrow">الأعلى تكلفة</p>
+        <p class="text-lg font-bold display mt-2">${Object.keys(byB).length?Object.entries(byB).sort((a,b)=>b[1]-a[1])[0][0]:'—'}</p>
+        <p class="text-xs text-ink-500 mt-1.5">${Object.keys(byB).length?`<span class="num">${money(Object.entries(byB).sort((a,b)=>b[1]-a[1])[0][1])}</span> ر.س`:'لا مصروفات'}</p></div>
+    </div>
     <details class="card p-5 mb-6">
       <summary class="font-semibold cursor-pointer">عمل صيانة جديد</summary>
       <div class="grid sm:grid-cols-2 gap-3 mt-4">
@@ -557,15 +740,17 @@ async function maintView(){
         <div><label class="eyebrow block mb-2">التاريخ</label><input id="mt_d" type="date" class="field" value="${today()}"></div>
         <div><label class="eyebrow block mb-2">المورد / الفني</label><input id="mt_v" class="field" placeholder="اختياري"></div>
         <div><label class="eyebrow block mb-2">الوصف</label><input id="mt_desc" class="field" placeholder="مثال: تغيير دينمو المضخة الرئيسية"></div>
+        <div><label class="eyebrow block mb-2">الحالة</label>
+          <select id="mt_st" class="field">${Object.entries(MAINT_ST).map(([k,v])=>`<option value="${k}" ${k==='done'?'selected':''}>${v}</option>`).join('')}</select></div>
       </div>
 
       <div class="mt-5">
         <label class="eyebrow block mb-2">على من تُحمّل التكلفة؟</label>
         <div class="flex gap-4 text-sm mb-3">
-          <label class="flex items-center gap-2"><input type="radio" name="scope" value="units" checked onchange="toggleScope()"> وحدات محددة</label>
-          <label class="flex items-center gap-2"><input type="radio" name="scope" value="building" onchange="toggleScope()"> المبنى كامل (مشترك)</label>
+          <label class="flex items-center gap-2"><input type="radio" name="scope" value="building" checked onchange="toggleScope()"> المبنى كامل (مشترك)</label>
+          <label class="flex items-center gap-2"><input type="radio" name="scope" value="units" onchange="toggleScope()"> وحدات محددة</label>
         </div>
-        <div id="mt_units" class="grid grid-cols-2 sm:grid-cols-3 gap-2"></div>
+        <div id="mt_units" class="hidden grid grid-cols-2 sm:grid-cols-3 gap-2"></div>
         <p id="mt_split" class="text-sm text-teal-700 font-semibold mt-3"></p>
       </div>
 
@@ -620,11 +805,13 @@ async function addMaint(){
   if(!building_name||!cost||!service_date) return fail('المبنى والتكلفة والتاريخ مطلوبة.');
   if(perUnit && !unit_ids.length) return fail('اختر الوحدات المستفيدة، أو حمّل التكلفة على المبنى كامل.');
 
+  const status=document.getElementById('mt_st').value;
   const {data,error}=await db.from('maintenance').insert({
-    building_name,category,description,cost,vendor,service_date,
+    building_name,category,description,cost,vendor,service_date,status,
     scope: perUnit?'units':'building', unit_ids: perUnit?unit_ids:[]
   }).select().single();
-  if(error) return fail('تعذّر الحفظ. حاول مرة أخرى.');
+  if(error) return fail('تعذّر الحفظ: '+error.message);
+  if(status!=='done'){ maintView(); return; }   // التكلفة تُقيَّد عند الإنجاز فقط
 
   // تُقيَّد التكلفة في المصروفات تلقائيًا حتى تظهر في المالية ولوحة المالك
   const rows = perUnit
@@ -646,7 +833,8 @@ function renderMaint(){
     return `<div class="card p-4">
       <div class="flex items-start justify-between gap-3">
         <div class="min-w-0">
-          <p class="font-semibold">${MAINT_CATS[x.category]||x.category} · ${x.building_name}</p>
+          <p class="font-semibold">${MAINT_CATS[x.category]||x.category} · ${x.building_name}
+            <span class="pill mr-1 ${MAINT_ST_C[x.status||'done']}">${MAINT_ST[x.status||'done']}</span></p>
           ${x.description?`<p class="text-sm text-ink-500">${x.description}</p>`:''}
           <p class="text-xs text-ink-500 mt-1"><span class="num">${x.service_date}</span>${x.vendor?` · ${x.vendor}`:''}</p>
         </div>
@@ -657,9 +845,32 @@ function renderMaint(){
           ? `<p class="text-ink-700">الوحدات المستفيدة: ${nums.map(n=>`<span class="pill bg-teal-100 text-teal-700 mx-0.5">وحدة <span class="num">${n}</span></span>`).join('')}</p>
              <p class="text-xs text-ink-500 mt-1.5">نصيب كل وحدة <span class="num">${money(share)}</span> ر.س</p>`
           : `<p class="text-ink-500">مصروف مشترك على المبنى كامل</p>`}
-        <button onclick="deleteMaint('${x.id}')" class="btn-ghost text-rose-600 border-rose-100 mt-3">حذف السجل</button>
+        <div class="flex gap-1.5 mt-3">
+          ${x.status!=='done'?`<button onclick="finishMaint('${x.id}')" class="btn-ghost text-teal-700 border-teal-100">تعليم كمنجزة وقيد التكلفة</button>`:''}
+          <button onclick="deleteMaint('${x.id}')" class="btn-ghost text-rose-600 border-rose-100">حذف السجل</button>
+        </div>
       </div>
     </div>`;}).join('');
+}
+
+async function finishMaint(id){
+  const x=maint.find(m=>m.id===id);
+  if(!confirm('تعليم العمل كمنجز وقيد تكلفته في المصروفات؟')) return;
+  await db.from('maintenance').update({status:'done'}).eq('id',id);
+  await postMaintExpense(x);
+  maintView();
+}
+
+/** قيد تكلفة الصيانة في المصروفات — على الوحدات المحددة أو على المبنى */
+async function postMaintExpense(x){
+  const ids=x.unit_ids||[];
+  const rows = ids.length
+    ? ids.map(uid=>({ building_name:x.building_name, category:'maintenance', amount:Math.round(x.cost/ids.length),
+        expense_date:x.service_date, unit_id:uid, source:'maintenance', ref_id:x.id,
+        notes:`${MAINT_CATS[x.category]||x.category}${x.description?' — '+x.description:''}` }))
+    : [{ building_name:x.building_name, category:'maintenance', amount:x.cost, expense_date:x.service_date,
+        source:'maintenance', ref_id:x.id, notes:`${MAINT_CATS[x.category]||x.category} (مشترك)${x.description?' — '+x.description:''}` }];
+  await db.from('expenses').insert(rows);
 }
 
 async function deleteMaint(id){
