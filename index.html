@@ -72,7 +72,7 @@ tailwind.config = { theme:{ extend:{
   const SUPABASE_KEY = "sb_publishable_26WQJ1wSFyt3eNDdkj2yyw_RwYDK6yf";
   const BRAND = "أصول";              // ← اسم النظام، غيّره من هنا
   const BRAND_SUB = "إدارة الأملاك";
-  const VERSION = "v13";                // للتأكد من أن النسخة المنشورة محدّثة
+  const VERSION = "v14";                // للتأكد من أن النسخة المنشورة محدّثة
 </script>
 
 <div id="app"></div>
@@ -700,6 +700,112 @@ async function saveReceipt(id){
   closeModal(); collectionView();
 }
 
+
+/* ───── القيد السريع: اكتب الملاحظة كما تنطقها ويملأ النظام الحقول ───── */
+const MK={
+  heater:['سخان','سخانات','بويلر'],
+  dynamo:['دينمو','دينامو','مضخة','مضخه','طرمبة','طرمبه','غطاس'],
+  elevator:['مصعد','اصنصير','اسانسير','ليفت'],
+  plumbing:['سباك','سباكة','سباكه','تسريب','صرف','مجاري','خزان','مواسير','ماسورة','ماسوره','حنفية','حنفيه','خلاط','سيفون'],
+  electrical:['كهرب','تماس','قاطع','لمبة','لمبه','لمبات','اضاءة','مفتاح'],
+  ac:['مكيف','تكييف','سبليت','فريون','كمبروسر'],
+  paint:['دهان','صبغ','ترميم','بوية','بويه','جبس','سيراميك','بلاط'],
+};
+const ARD={'٠':'0','١':'1','٢':'2','٣':'3','٤':'4','٥':'5','٦':'6','٧':'7','٨':'8','٩':'9'};
+const norm = t => (t||'').replace(/[٠-٩]/g,d=>ARD[d]).replace(/[أإآ]/g,'ا').replace(/ة/g,'ه').replace(/ى/g,'ي').replace(/\s+/g,' ').trim();
+
+function parseNote(text){
+  const t=norm(text);
+  const out={category:'other',building:null,units:[],amount:null,unitIds:[],unknownUnits:[],description:(text||'').trim()};
+
+  let best=null;
+  buildings.map(b=>b.name).forEach(b=>{ const nb=norm(b); if(nb&&t.includes(nb)&&(!best||nb.length>norm(best).length)) best=b; });
+  out.building=best;
+
+  const m=t.match(/(?:شقه|شقق|وحده|وحدات|محل|محلات|مكتب|مكاتب|رقم)\s*((?:\d+[\s,و]*)+)/);
+  const cand=m?m[1].split(/[\s,و]+/).filter(x=>/^\d+$/.test(x)):[];
+  const real=units.filter(u=>!out.building||u.building_name===out.building);
+  const matched=cand.filter(n=>real.some(u=>String(u.unit_number)===n));
+  const leftover=cand.filter(n=>!matched.includes(n));
+  out.units = matched.length?matched:cand;
+  out.unitIds = real.filter(u=>out.units.includes(String(u.unit_number))).map(u=>u.id);
+  out.unknownUnits = out.units.filter(n=>!real.some(u=>String(u.unit_number)===n));
+
+  const near=t.match(/(\d+(?:[.,]\d+)?)\s*(?:ريال|ر\.?س|sar)/i)||t.match(/(?:ريال|ر\.?س)\s*(\d+(?:[.,]\d+)?)/i);
+  if(near) out.amount=Number(near[1].replace(',',''));
+  else{
+    const used=new Set(matched);
+    const pool=(t.match(/\d+(?:[.,]\d+)?/g)||[]).map(x=>Number(x.replace(',',''))).filter(n=>!used.has(String(n)));
+    const pref=pool.filter(n=>leftover.includes(String(n)));
+    out.amount = pref.length?Math.max(...pref) : (pool.length?Math.max(...pool):null);
+  }
+
+  for(const [c,w] of Object.entries(MK)){ if(w.some(x=>t.includes(norm(x)))){ out.category=c; break; } }
+  return out;
+}
+
+let QP=null;
+function runQuick(){
+  const txt=document.getElementById('q_text').value;
+  if(!txt.trim()) return;
+  QP=parseNote(txt);
+  const box=document.getElementById('q_preview');
+  const missing=[];
+  if(!QP.building) missing.push('المبنى');
+  if(!QP.amount)   missing.push('المبلغ');
+  box.innerHTML=`
+    <div class="border border-paper-200 rounded-xl p-4 mt-3 bg-paper-50">
+      <p class="eyebrow mb-3">تحقّق قبل الحفظ</p>
+      <div class="grid sm:grid-cols-2 gap-3">
+        <div><label class="eyebrow block mb-1.5">المبنى</label>
+          <select id="q_b" class="field" onchange="quickUnits()">
+            <option value="">— اختر —</option>
+            ${buildings.map(b=>`<option ${b.name===QP.building?'selected':''}>${b.name}</option>`).join('')}
+          </select></div>
+        <div><label class="eyebrow block mb-1.5">البند</label>
+          <select id="q_c" class="field">${Object.entries(MAINT_CATS).map(([k,v])=>`<option value="${k}" ${k===QP.category?'selected':''}>${v}</option>`).join('')}</select></div>
+        <div><label class="eyebrow block mb-1.5">التكلفة (ر.س)</label><input id="q_a" type="number" class="field" value="${QP.amount??''}"></div>
+        <div><label class="eyebrow block mb-1.5">التاريخ</label><input id="q_d" type="date" class="field" value="${today()}"></div>
+      </div>
+      <p class="eyebrow mt-4 mb-2">الوحدات المستفيدة <span class="font-normal text-ink-300">(اتركها فارغة إن كانت على المبنى كامل)</span></p>
+      <div id="q_units" class="grid grid-cols-3 sm:grid-cols-5 gap-2"></div>
+      ${QP.unknownUnits.length?`<p class="text-sm text-amber-600 mt-2">لم أجد الوحدات: ${QP.unknownUnits.join('، ')} — تأكد من تسجيلها.</p>`:''}
+      ${missing.length?`<p class="text-sm text-rose-600 mt-2">لم أتعرّف على: ${missing.join('، ')} — أكملها يدويًا.</p>`:''}
+      <div class="flex gap-2 mt-4">
+        <button onclick="saveQuick()" class="btn-primary">حفظ القيد</button>
+        <button onclick="clearQuick()" class="btn-ghost">إلغاء</button>
+      </div>
+    </div>`;
+  quickUnits();
+}
+
+function quickUnits(){
+  const b=document.getElementById('q_b').value;
+  const list=units.filter(u=>u.building_name===b);
+  document.getElementById('q_units').innerHTML = list.length
+    ? list.map(u=>`<label class="flex items-center gap-1.5 border border-paper-200 rounded-lg px-2 py-1.5 text-sm bg-white">
+        <input type="checkbox" class="q_u" value="${u.id}" ${QP.unitIds.includes(u.id)?'checked':''}> ${u.unit_number}</label>`).join('')
+    : `<p class="text-sm text-ink-300 col-span-5">لا وحدات مسجّلة في هذا المبنى</p>`;
+}
+
+function clearQuick(){ QP=null; document.getElementById('q_preview').innerHTML=''; document.getElementById('q_text').value=''; }
+
+async function saveQuick(){
+  const building_name=document.getElementById('q_b').value,
+        category=document.getElementById('q_c').value,
+        cost=Number(document.getElementById('q_a').value),
+        service_date=document.getElementById('q_d').value,
+        unit_ids=[...document.querySelectorAll('.q_u:checked')].map(c=>c.value);
+  if(!building_name||!cost||!service_date) return showError('أكمل المبنى والتكلفة والتاريخ قبل الحفظ.');
+  const {data,error}=await db.from('maintenance').insert({
+    building_name, category, description:QP.description, cost, service_date, status:'done',
+    scope: unit_ids.length?'units':'building', unit_ids
+  }).select().single();
+  if(error) return showError('تعذّر الحفظ: '+error.message);
+  await postMaintExpense({...data, unit_ids});
+  maintView();
+}
+
 /* ───── الصيانة ───── */
 const MAINT_CATS={dynamo:'دينمو / مضخة',heater:'سخان',elevator:'مصعد',plumbing:'سباكة',electrical:'كهرباء',ac:'تكييف',paint:'دهان وترميم',other:'أخرى'};
 const MAINT_ST={open:'مطلوبة',doing:'قيد التنفيذ',done:'منجزة'};
@@ -721,6 +827,15 @@ async function maintView(){
     ${periodPicker()}
   </div>
   <div class="fade">
+    <div class="card p-5 mb-6">
+      <p class="font-semibold">القيد السريع</p>
+      <p class="text-sm text-ink-500 mt-0.5 mb-3">اكتب الملاحظة كما تقولها، مثل: سخان فوري شقة 13 العالية 380 ريال</p>
+      <div class="flex gap-2">
+        <input id="q_text" class="field flex-1" placeholder="اكتب هنا…" onkeydown="if(event.key==='Enter')runQuick()">
+        <button onclick="runQuick()" class="btn-primary shrink-0">تحليل</button>
+      </div>
+      <div id="q_preview"></div>
+    </div>
     <div class="grid grid-cols-2 lg:grid-cols-3 gap-3 mb-6">
       ${stat('تكلفة الصيانة',spend,inP.length+' عمل في الفترة','amber-600')}
       <div class="card p-5"><p class="eyebrow">أعمال مفتوحة</p>
