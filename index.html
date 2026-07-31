@@ -72,7 +72,7 @@ tailwind.config = { theme:{ extend:{
   const SUPABASE_KEY = "sb_publishable_26WQJ1wSFyt3eNDdkj2yyw_RwYDK6yf";
   const BRAND = "أصول";              // ← اسم النظام، غيّره من هنا
   const BRAND_SUB = "إدارة الأملاك";
-  const VERSION = "v12";                // للتأكد من أن النسخة المنشورة محدّثة
+  const VERSION = "v13";                // للتأكد من أن النسخة المنشورة محدّثة
 </script>
 
 <div id="app"></div>
@@ -108,6 +108,9 @@ const TABS = [
 
 const money = n => Number(n||0).toLocaleString('en-US',{maximumFractionDigits:0});
 const today = () => new Date().toISOString().slice(0,10);
+/** تحويل آمن للتاريخ — يمنع انهيار الواجهة عند تاريخ ناقص أو غير صالح */
+const ymd = d => { const x=(d instanceof Date)?d:new Date(d); return isNaN(x.getTime())?null:x.toISOString().slice(0,10); };
+const isValidDate = d => !!d && !isNaN(new Date(d).getTime());
 let YR = String(new Date().getFullYear());
 const THIS_YEAR = String(new Date().getFullYear());
 function setYear(y){ YR=y; route(); }
@@ -692,7 +695,7 @@ const closeModal=()=>document.getElementById('modal')?.remove();
 async function saveReceipt(id){
   const amt=Number(r_amt.value), date=r_date.value, err=document.getElementById('r_err');
   if(!amt||amt<=0||!date){ err.textContent='أدخل مبلغًا صحيحًا وتاريخ الاستلام.'; err.classList.remove('hidden'); return; }
-  const {error}=await db.from('payments').update({status:'paid',paid_amount:amt,paid_at:new Date(date).toISOString(),payment_method:r_method.value,receipt_number:r_ref.value.trim()||null}).eq('id',id);
+  const {error}=await db.from('payments').update({status:'paid',paid_amount:amt,paid_at:new Date(date+'T12:00:00').toISOString(),payment_method:r_method.value,receipt_number:r_ref.value.trim()||null}).eq('id',id);
   if(error){ err.textContent='تعذّر الحفظ. حاول مرة أخرى.'; err.classList.remove('hidden'); return; }
   closeModal(); collectionView();
 }
@@ -1095,7 +1098,11 @@ async function leasesView(){
   </div>`;
   renderLeases();
   l_unit.addEventListener('change',e=>{ const r=e.target.selectedOptions[0]?.dataset.rent; if(r){ l_rent.value=r; previewPlan(); } });
-  l_start.addEventListener('change',e=>{ if(!l_end.value){ const d=new Date(e.target.value); d.setFullYear(d.getFullYear()+1); d.setDate(d.getDate()-1); l_end.value=d.toISOString().slice(0,10);} });
+  l_start.addEventListener('change',e=>{
+    if(l_end.value || !isValidDate(e.target.value)) return;
+    const d=new Date(e.target.value); d.setFullYear(d.getFullYear()+1); d.setDate(d.getDate()-1);
+    const v=ymd(d); if(v) l_end.value=v;
+  });
 }
 function renderLeases(){
   const box=document.getElementById('llist');
@@ -1161,9 +1168,16 @@ async function addLease(){
 
 /** دفعة لكل قسط: المبلغ = الإيجار السنوي ÷ عدد الدفعات، والفاصل = ١٢ ÷ عدد الدفعات بالأشهر */
 function buildSchedule(lease_id,start,end,annual,count){
+  const n=Math.max(1,Math.round(Number(count)||1));
+  if(!isValidDate(start)||!isValidDate(end)) return [];
   const rows=[], last=new Date(end), d=new Date(start),
-        step=12/count, amount=Math.round(annual/count);
-  while(d<=last){ rows.push({lease_id,due_date:d.toISOString().slice(0,10),amount,status:'pending'}); d.setMonth(d.getMonth()+step); }
+        step=Math.max(1,Math.round(12/n)), amount=Math.round(Number(annual||0)/n);
+  let guardCount=0;
+  while(d<=last && guardCount++<600){                 // سقف أمان يمنع أي دوران لا نهائي
+    const v=ymd(d); if(!v) break;
+    rows.push({lease_id,due_date:v,amount,status:'pending'});
+    d.setMonth(d.getMonth()+step);
+  }
   return rows;
 }
 function openLeaseEdit(id){
