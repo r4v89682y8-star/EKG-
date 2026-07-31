@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-<title>أصول— إدارة الأملاك</title>
+<title>عُمران — إدارة الأملاك</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Readex+Pro:wght@400;500;600;700&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=Rubik:wght@500;600;700&display=swap" rel="stylesheet">
@@ -72,7 +72,7 @@ tailwind.config = { theme:{ extend:{
   const SUPABASE_KEY = "sb_publishable_26WQJ1wSFyt3eNDdkj2yyw_RwYDK6yf";
   const BRAND = "أصول";              // ← اسم النظام، غيّره من هنا
   const BRAND_SUB = "إدارة وتشغيل وصيانة الأصول العقارية";
-  const VERSION = "v17";                // للتأكد من أن النسخة المنشورة محدّثة
+  const VERSION = "v18";                // للتأكد من أن النسخة المنشورة محدّثة
 </script>
 
 <div id="app"></div>
@@ -192,9 +192,15 @@ async function init(){
   paint();
 }
 async function loadMe(){
-  const {data,error}=await db.from('app_users').select('*').ilike('email',user.email).maybeSingle();
-  ME = data || {role:'none',full_name:user.email,buildings:[]};
-  const t=ROLE_TABS[ME.role]||[];
+  let role='none', blds=[];
+  try{
+    const r=await db.rpc('my_role');            // دالة موثوقة لا تخضع لسياسات القراءة
+    if(!r.error && r.data) role=r.data;
+    const b=await db.rpc('my_buildings');
+    if(!b.error && b.data) blds=b.data;
+  }catch(e){}
+  ME={role,full_name:user.email,buildings:blds};
+  const t=ROLE_TABS[role]||[];
   if(!t.includes(tab)) tab=t[0]||'none';
 }
 db.auth.onAuthStateChange(async(_e,s)=>{ user=s?.user||null; if(user) await loadMe(); paint(); });
@@ -202,6 +208,20 @@ function paint(){
   if(!user) return loginView();
   if(!(ROLE_TABS[ME.role]||[]).length) return noAccessView();
   shell();
+}
+
+async function runDiag(){
+  const box=document.getElementById('diag');
+  box.innerHTML='<p class="text-ink-500">جارٍ الفحص…</p>';
+  const {data,error}=await db.rpc('whoami');
+  if(error){ box.innerHTML=`<p class="text-rose-600">تعذّر الفحص: ${error.message}<br>الأرجح أن دوال الحماية لم تُنشأ بعد.</p>`; return; }
+  const rows=(data.rows||[]).map(r=>`<div class="num" dir="ltr">${r.email} — ${r.role}</div>`).join('')||'<div class="text-rose-600">لا حسابات مسجّلة</div>';
+  box.innerHTML=`
+    <div class="border border-paper-200 rounded-lg p-3 bg-paper-50 space-y-1.5">
+      <p><b>البريد كما تراه قاعدة البيانات:</b><br><span class="num" dir="ltr">${data.jwt_email||'— لا يصل البريد —'}</span></p>
+      <p><b>الدور المُستنتج:</b> ${data.role_found}</p>
+      <p><b>الحسابات المسجّلة:</b></p>${rows}
+    </div>`;
 }
 
 function noAccessView(){
@@ -215,7 +235,9 @@ function noAccessView(){
       <h1 class="text-xl font-bold">لا توجد صلاحية لهذا الحساب</h1>
       <p class="text-ink-500 text-sm mt-2">${user.email}</p>
       <p class="text-ink-500 text-sm mt-3">تواصل مع مدير النظام لإسناد دور لحسابك.</p>
-      <button onclick="logout()" class="btn-ghost w-full mt-6">تسجيل الخروج</button>
+      <div id="diag" class="text-right text-xs mt-5"></div>
+      <button onclick="runDiag()" class="btn-ghost w-full mt-4">تشخيص</button>
+      <button onclick="logout()" class="btn-ghost w-full mt-2">تسجيل الخروج</button>
     </div>
   </div>`;
 }
