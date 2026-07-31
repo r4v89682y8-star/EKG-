@@ -71,8 +71,8 @@ tailwind.config = { theme:{ extend:{
   const SUPABASE_URL = "https://hyyvqcppamlmlhcmnsut.supabase.co";
   const SUPABASE_KEY = "sb_publishable_26WQJ1wSFyt3eNDdkj2yyw_RwYDK6yf";
   const BRAND = "أصول";              // ← اسم النظام، غيّره من هنا
-  const BRAND_SUB = "إدارة الأملاك";
-  const VERSION = "v15";                // للتأكد من أن النسخة المنشورة محدّثة
+  const BRAND_SUB = "إدارة وتشغيل وصيانة الأصول العقارية";
+  const VERSION = "v16";                // للتأكد من أن النسخة المنشورة محدّثة
 </script>
 
 <div id="app"></div>
@@ -92,7 +92,31 @@ window.onerror=(m,src,line)=>{ showError('خطأ: '+m+' (سطر '+line+')'); };
 window.onunhandledrejection=e=>{ showError('خطأ: '+(e.reason?.message||e.reason)); };
 const guard=fn=>(...a)=>{ try{ const r=fn(...a); if(r&&r.catch) r.catch(e=>showError('خطأ: '+(e.message||e))); return r; }catch(e){ showError('خطأ: '+(e.message||e)); } };
 const app = document.getElementById('app');
-let user=null, tab='dash', navOpen=false;
+let user=null, tab='dash', navOpen=false, ME={role:'operator',full_name:''};
+
+/* ───── الأدوار ───── */
+const ROLE_LABEL={admin:'مدير النظام',operator:'مشغّل',accountant:'محاسب',owner:'مالك',exec:'مدير تنفيذي'};
+const ROLE_TABS={
+  admin:      ['dash','collection','buildings','finance','maint','staff','leases','units','tenants','settings'],
+  operator:   ['dash','collection','buildings','finance','maint','staff','leases','units','tenants','settings'],
+  accountant: ['dash','collection','buildings','finance','maint','leases','units','tenants'],
+  owner:      ['dash','collection','buildings','finance','maint','leases','units'],
+  exec:       ['dash','collection','buildings','finance','maint','staff','leases','units','tenants'],
+};
+const canEdit = () => ['admin','operator'].includes(ME.role);
+const canMoney = () => ['admin','operator','accountant'].includes(ME.role);
+const allowed = t => (ROLE_TABS[ME.role]||ROLE_TABS.operator).includes(t);
+const RO = () => canEdit()?'' : 'style="display:none"';        // إخفاء أدوات التعديل عن غير المخوّل
+
+/* سجل التدقيق */
+async function logAction(action,entity,entity_id,details){
+  try{ await db.from('audit_log').insert({actor:user?.email||'—',action,entity,entity_id:String(entity_id||''),details:details||null}); }catch(e){}
+}
+
+/* ضغطة مطوّلة على الشعار تكشف رقم الإصدار */
+let holdT=null;
+function holdStart(){ holdT=setTimeout(()=>showError('الإصدار الحالي: '+VERSION),1500); }
+function holdEnd(){ clearTimeout(holdT); }
 
 const TABS = [
   { id:'dash',       label:'لوحة المالك', icon:'M3 13h4v8H3zM10 3h4v18h-4zM17 9h4v12h-4z' },
@@ -104,6 +128,7 @@ const TABS = [
   { id:'leases',     label:'العقود',      icon:'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h7l5 5v11a2 2 0 01-2 2z' },
   { id:'units',      label:'الوحدات',     icon:'M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z' },
   { id:'tenants',    label:'المستأجرون',  icon:'M17 20v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2M13 7a3.5 3.5 0 11-7 0 3.5 3.5 0 017 0M22 20v-2a4 4 0 00-3-3.87' },
+  { id:'settings',   label:'الإعدادات',   icon:'M12 15a3 3 0 100-6 3 3 0 000 6zM19.4 15a1.7 1.7 0 00.3 1.9l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.9-.3 1.7 1.7 0 00-1 1.5V21a2 2 0 11-4 0v-.1A1.7 1.7 0 008.6 19a1.7 1.7 0 00-1.9.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.9 1.7 1.7 0 00-1.5-1H3a2 2 0 110-4h.1A1.7 1.7 0 004.6 8.6a1.7 1.7 0 00-.3-1.9l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 001.9.3H9a1.7 1.7 0 001-1.5V3a2 2 0 114 0v.1a1.7 1.7 0 001 1.5 1.7 1.7 0 001.9-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.7 1.7 0 00-.3 1.9V9a1.7 1.7 0 001.5 1H21a2 2 0 110 4h-.1a1.7 1.7 0 00-1.5 1z' },
 ];
 
 const money = n => Number(n||0).toLocaleString('en-US',{maximumFractionDigits:0});
@@ -158,8 +183,17 @@ async function once(key,btn,fn){
 }
 
 /* ───── auth ───── */
-async function init(){ const {data:{session}} = await db.auth.getSession(); user=session?.user||null; paint(); }
-db.auth.onAuthStateChange((_e,s)=>{ user=s?.user||null; paint(); });
+async function init(){
+  const {data:{session}} = await db.auth.getSession(); user=session?.user||null;
+  if(user) await loadMe();
+  paint();
+}
+async function loadMe(){
+  const {data}=await db.from('app_users').select('*').eq('email',user.email).maybeSingle();
+  ME = data || {role:'operator',full_name:user.email};
+  if(!allowed(tab)) tab=(ROLE_TABS[ME.role]||['dash'])[0];
+}
+db.auth.onAuthStateChange(async(_e,s)=>{ user=s?.user||null; if(user) await loadMe(); paint(); });
 const paint = () => user ? shell() : loginView();
 
 function loginView(){
@@ -172,7 +206,6 @@ function loginView(){
         </div>
         <h1 class="text-3xl font-bold">${BRAND}</h1>
         <p class="text-ink-500 mt-1">${BRAND_SUB}</p>
-        <p class="text-xs text-ink-300 mt-2">الإصدار <span class="num">${VERSION}</span></p>
       </div>
       <div class="card p-7">
         <label class="eyebrow block mb-2">البريد الإلكتروني</label>
@@ -198,18 +231,18 @@ function shell(){
   <div class="flex min-h-screen">
     <aside class="hidden lg:flex flex-col w-64 shrink-0 bg-white/85 backdrop-blur border-l border-paper-100 p-4">
       ${brandBlock()}
-      <nav class="space-y-1 mt-7">${TABS.map(navBtn).join('')}</nav>
+      <nav class="space-y-1 mt-7">${TABS.filter(t=>allowed(t.id)).map(navBtn).join('')}</nav>
       <button onclick="logout()" class="navlink mt-auto text-ink-500 text-sm">تسجيل الخروج</button>
     </aside>
     <div class="flex-1 min-w-0">
       <header class="lg:hidden sticky top-0 z-20 bg-white/95 backdrop-blur border-b border-paper-100 px-4 h-14 flex items-center justify-between">
         <button onclick="toggleNav()" aria-label="القائمة"><svg width="24" height="24" viewBox="0 0 24 24" stroke="#39434F" stroke-width="1.8" fill="none"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
-        <span class="font-bold display">${BRAND} <span class="text-xs font-normal text-ink-300 num">${VERSION}</span></span>
+        <span class="font-bold display">${BRAND}</span>
         <button onclick="logout()" class="text-sm text-ink-500">خروج</button>
       </header>
       <div id="drawer" class="hidden lg:hidden fixed inset-0 z-30">
         <div class="absolute inset-0 bg-ink-900/45" onclick="toggleNav()"></div>
-        <div class="absolute top-0 right-0 h-full w-64 bg-white p-4">${brandBlock()}<nav class="space-y-1 mt-7">${TABS.map(navBtn).join('')}</nav></div>
+        <div class="absolute top-0 right-0 h-full w-64 bg-white p-4">${brandBlock()}<nav class="space-y-1 mt-7">${TABS.filter(t=>allowed(t.id)).map(navBtn).join('')}</nav></div>
       </div>
       <main id="main" class="p-4 sm:p-6 lg:p-9 max-w-5xl"></main>
     </div>
@@ -218,24 +251,32 @@ function shell(){
 }
 const brandBlock = () => `
   <div class="flex items-center gap-2.5">
-    <div class="w-10 h-10 rounded-xl bg-teal-900 grid place-items-center shrink-0">
+    <div class="w-10 h-10 rounded-xl bg-teal-900 grid place-items-center shrink-0 select-none"
+         onpointerdown="holdStart()" onpointerup="holdEnd()" onpointerleave="holdEnd()">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.7"><path d="M3 21V9l9-6 9 6v12M9 21v-6h6v6"/></svg>
     </div>
-    <div class="leading-tight"><p class="font-bold display">${BRAND}</p><p class="text-xs text-ink-500">${BRAND_SUB} · <span class="num">${VERSION}</span></p></div>
+    <div class="leading-tight"><p class="font-bold display">${BRAND}</p><p class="text-xs text-ink-500">${BRAND_SUB}</p></div>
   </div>`;
 const navBtn = t => `<button onclick="go('${t.id}')" class="navlink ${tab===t.id?'on':''}">
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="${t.icon}"/></svg>${t.label}</button>`;
 function toggleNav(){ navOpen=!navOpen; document.getElementById('drawer').classList.toggle('hidden',!navOpen); }
 function go(t){ tab=t; navOpen=false; shell(); }
-function route(){ ({dash:dashView,collection:collectionView,buildings:buildingsView,finance:financeView,maint:maintView,staff:staffView,leases:leasesView,units:unitsView,tenants:tenantsView})[tab](); }
+function route(){ if(!allowed(tab)) tab=(ROLE_TABS[ME.role]||['dash'])[0]; ({dash:dashView,collection:collectionView,buildings:buildingsView,finance:financeView,maint:maintView,staff:staffView,leases:leasesView,units:unitsView,tenants:tenantsView,settings:settingsView})[tab](); }
 const head=(t,s)=>`<div class="mb-7"><h1 class="text-2xl font-bold">${t}</h1><p class="text-ink-500 mt-1">${s}</p></div>`;
 const empty=m=>`<div class="card p-10 text-center text-ink-500">${m}</div>`;
 
 /* ───── data ───── */
-let tenants=[],units=[],leases=[],payments=[],expenses=[],readings=[],maint=[],staff=[],buildings=[];
+let tenants=[],units=[],leases=[],payments=[],expenses=[],readings=[],maint=[],staff=[],buildings=[],payouts=[];
 const load = {
   tenants: async q=>{ let r=db.from('tenants').select('*').order('created_at',{ascending:false}); if(q) r=r.or(`full_name.ilike.%${q}%,phone.ilike.%${q}%`); tenants=(await r).data||[]; },
-  units:   async ()=>{ units=(await db.from('units').select('*').order('building_name')).data||[]; },
+  units:   async ()=>{
+    const rank={maintenance:0,vacant:1,occupied:2};
+    units=((await db.from('units').select('*').order('building_name')).data||[])
+      .sort((a,b)=>(rank[a.status]??3)-(rank[b.status]??3)
+        || String(a.building_name).localeCompare(String(b.building_name))
+        || String(a.unit_number).localeCompare(String(b.unit_number),undefined,{numeric:true}));
+  },
+  payouts: async ()=>{ await loadPayouts(); },
   buildings: async ()=>{
     buildings=(await db.from('buildings').select('*').order('name')).data||[];
     // أي مبنى مذكور في الوحدات ولم يُسجّل بعد يظهر افتراضيًا كمملوك
@@ -272,6 +313,7 @@ async function dashView(){
   </div>
   <div class="fade space-y-7">
 
+    ${expiryCard()}
     ${bookBlock('مبانٍ مملوكة', owned, 'الإيراد والصافي يخصّ الشركة بالكامل')}
     ${bookBlock('مبانٍ تحت الإدارة', managed, 'الصافي يخصّ المُلّاك، وللشركة أتعاب الإدارة')}
 
@@ -392,11 +434,154 @@ const stat=(label,val,meta,tone,badge='')=>`
     <p class="text-xs text-ink-500 mt-1.5">${meta}</p>
   </div>`;
 
+
+/* ───── تنبيهات انتهاء العقود والتجديد ───── */
+function expiringLeases(days){
+  const t=new Date(today());
+  return leases.filter(l=>(l.status==='active'||l.status==='renewed')&&isValidDate(l.end_date))
+    .map(l=>({...l,daysLeft:Math.round((new Date(l.end_date)-t)/864e5)}))
+    .filter(l=>l.daysLeft<=days)
+    .sort((a,b)=>a.daysLeft-b.daysLeft);
+}
+
+function expiryCard(){
+  const soon=expiringLeases(90);
+  if(!soon.length) return '';
+  const n30=soon.filter(l=>l.daysLeft<=30).length, n60=soon.filter(l=>l.daysLeft>30&&l.daysLeft<=60).length;
+  return `<div class="card p-5">
+    <div class="flex flex-wrap items-baseline justify-between gap-2 mb-4">
+      <h2 class="font-bold text-lg">عقود تقترب من الانتهاء</h2>
+      <p class="text-xs text-ink-500">خلال ٣٠ يومًا <span class="num">${n30}</span> · ٦٠ يومًا <span class="num">${n60}</span> · ٩٠ يومًا <span class="num">${soon.length}</span></p>
+    </div>
+    <div class="space-y-2">
+      ${soon.slice(0,12).map(l=>{
+        const tone=l.daysLeft<0?'bg-rose-100 text-rose-600':l.daysLeft<=30?'bg-rose-100 text-rose-600':l.daysLeft<=60?'bg-amber-100 text-amber-600':'bg-paper-100 text-ink-500';
+        return `<div class="flex items-center justify-between gap-3 border border-paper-100 rounded-lg p-3">
+          <div class="min-w-0">
+            <p class="font-semibold truncate">${l.tenants?.full_name||'—'}</p>
+            <p class="text-xs text-ink-500 truncate">${l.units?.building_name||''} · وحدة ${l.units?.unit_number||''} · ينتهي <span class="num">${l.end_date}</span></p>
+          </div>
+          <div class="flex items-center gap-2 shrink-0">
+            <span class="pill ${tone}">${l.daysLeft<0?'منتهٍ':'<span class="num">'+l.daysLeft+'</span> يوم'}</span>
+            <button onclick="openRenew('${l.id}')" class="btn-ghost text-teal-700 border-teal-100" ${canEdit()?'':'style="display:none"'}>تجديد</button>
+          </div>
+        </div>`;}).join('')}
+    </div>
+  </div>`;
+}
+
+function openRenew(id){
+  const l=leases.find(x=>x.id===id);
+  const ns=ymd(new Date(new Date(l.end_date).getTime()+864e5));
+  const ne=(()=>{const d=new Date(ns); d.setFullYear(d.getFullYear()+1); d.setDate(d.getDate()-1); return ymd(d);})();
+  const w=document.createElement('div'); w.id='modal'; w.className='fixed inset-0 z-40 grid place-items-center p-4 overflow-y-auto';
+  w.innerHTML=`<div class="absolute inset-0 bg-ink-900/45" onclick="closeModal()"></div>
+  <div class="card relative w-full max-w-md p-6 fade my-8">
+    <h3 class="font-bold text-xl">تجديد العقد</h3>
+    <p class="text-ink-500 text-sm mt-1 mb-5">${l.tenants?.full_name||''} · ${l.units?.building_name||''} وحدة ${l.units?.unit_number||''}</p>
+    <div class="grid grid-cols-2 gap-3">
+      <div><label class="eyebrow block mb-2">بداية الفترة الجديدة</label><input id="rn_s" type="date" class="field" value="${ns||''}"></div>
+      <div><label class="eyebrow block mb-2">نهايتها</label><input id="rn_e" type="date" class="field" value="${ne||''}"></div>
+      <div><label class="eyebrow block mb-2">الإيجار السنوي (ر.س)</label><input id="rn_r" type="number" class="field" value="${l.annual_rent??''}"></div>
+      <div><label class="eyebrow block mb-2">عدد الدفعات</label>
+        <select id="rn_c" class="field">${[1,2,3,4,12].map(n=>`<option value="${n}" ${Number(l.installments)===n?'selected':''}>${n===1?'دفعة واحدة':n===12?'١٢ دفعة (شهري)':n+' دفعات'}</option>`).join('')}</select></div>
+    </div>
+    <p class="text-xs text-ink-500 mt-3">يُقفل العقد الحالي كـ«مجدد»، ويُنشأ عقد جديد بجدول دفعاته، وتبقى الوحدة مؤجّرة.</p>
+    <p id="rn_err" class="text-rose-600 text-sm mt-3 hidden"></p>
+    <div class="flex gap-2 mt-5">
+      <button onclick="doRenew('${l.id}')" class="btn-primary flex-1">تنفيذ التجديد</button>
+      <button onclick="closeModal()" class="btn-ghost px-4">إلغاء</button>
+    </div>
+  </div>`;
+  document.body.appendChild(w);
+}
+
+async function doRenew(id){
+  const l=leases.find(x=>x.id===id), err=document.getElementById('rn_err');
+  const start_date=rn_s.value, end_date=rn_e.value, annual=Number(rn_r.value), count=Number(rn_c.value);
+  err.classList.add('hidden');
+  const fail=m=>{err.textContent=m;err.classList.remove('hidden');};
+  if(!start_date||!end_date||!annual) return fail('أكمل الحقول.');
+  if(new Date(end_date)<=new Date(start_date)) return fail('تاريخ النهاية يجب أن يكون بعد البداية.');
+
+  const unit=units.find(u=>u.id===l.unit_id);
+  const vat_pct=unit?.unit_type==='commercial'?15:0;
+  const {data,error}=await db.from('leases').insert({
+    tenant_id:l.tenant_id, unit_id:l.unit_id, start_date, end_date, status:'active',
+    annual_rent:annual, installments:count, monthly_rent:Math.round(annual/12),
+    ejar_number:l.ejar_number||null, deposit_amount:l.deposit_amount||0,
+    late_fee_pct:l.late_fee_pct||0, vat_pct
+  }).select().single();
+  if(error) return fail('تعذّر التجديد: '+error.message);
+  await db.from('payments').insert(buildSchedule(data.id,start_date,end_date,annual,count,vat_pct));
+  await db.from('leases').update({status:'renewed'}).eq('id',id);
+  await logAction('renew','lease',id,`جُدّد إلى ${end_date}`);
+  closeModal(); leasesView();
+}
+
+/* ───── تسوية المستحق للمالك ───── */
+async function loadPayouts(){ payouts=(await db.from('owner_payouts').select('*').order('payout_date',{ascending:false})).data||[]; }
+
+function paidToOwner(name){
+  return payouts.filter(p=>p.building_name===name&&inPeriod(p.payout_date)).reduce((s,p)=>s+Number(p.amount),0);
+}
+
+function openPayout(name){
+  const r=bookFor(name), already=paidToOwner(name), rest=r.dueOwner-already;
+  const w=document.createElement('div'); w.id='modal'; w.className='fixed inset-0 z-40 grid place-items-center p-4 overflow-y-auto';
+  w.innerHTML=`<div class="absolute inset-0 bg-ink-900/45" onclick="closeModal()"></div>
+  <div class="card relative w-full max-w-md p-6 fade my-8">
+    <h3 class="font-bold text-xl">تسوية المالك — ${name}</h3>
+    <p class="text-ink-500 text-sm mt-1 mb-5">${periodLabel()}</p>
+    <table class="w-full mb-5"><tbody>
+      <tr><td>المستحق للمالك</td><td class="text-left font-bold"><span class="num">${money(r.dueOwner)}</span></td></tr>
+      <tr><td>المسدَّد له</td><td class="text-left text-teal-700"><span class="num">${money(already)}</span></td></tr>
+      <tr class="bg-teal-100/50"><td class="font-bold">المتبقّي</td><td class="text-left font-bold text-lg ${rest<0?'text-rose-600':''}"><span class="num">${money(rest)}</span></td></tr>
+    </tbody></table>
+    <div ${canMoney()?'':'style="display:none"'}>
+      <div class="grid grid-cols-2 gap-3">
+        <div><label class="eyebrow block mb-2">المبلغ المحوَّل (ر.س)</label><input id="po_a" type="number" class="field" value="${rest>0?rest:''}"></div>
+        <div><label class="eyebrow block mb-2">التاريخ</label><input id="po_d" type="date" class="field" value="${today()}"></div>
+        <div class="col-span-2"><label class="eyebrow block mb-2">مرجع التحويل</label><input id="po_r" class="field" dir="ltr" placeholder="رقم العملية البنكية"></div>
+      </div>
+      <p id="po_err" class="text-rose-600 text-sm mt-3 hidden"></p>
+      <button onclick="savePayout('${name.replace(/'/g,"\\'")}')" class="btn-primary w-full mt-4">تسجيل التحويل</button>
+    </div>
+    ${(()=>{const list=payouts.filter(p=>p.building_name===name);
+      return list.length?`<p class="eyebrow mt-6 mb-2">سجل التحويلات</p>
+      <div class="space-y-1.5 max-h-44 overflow-y-auto">${list.map(p=>`
+        <div class="flex justify-between gap-3 text-sm border-b border-paper-100 pb-1.5">
+          <span class="text-ink-500"><span class="num">${p.payout_date}</span>${p.reference?' · '+p.reference:''}</span>
+          <span class="shrink-0 font-semibold"><span class="num">${money(p.amount)}</span>
+            <button onclick="delPayout('${p.id}')" class="text-rose-600 mr-2" ${canMoney()?'':'style="display:none"'}>✕</button></span>
+        </div>`).join('')}</div>`:'';})()}
+    <button onclick="closeModal()" class="btn-ghost w-full mt-5">إغلاق</button>
+  </div>`;
+  document.body.appendChild(w);
+}
+
+async function savePayout(name){
+  const amount=Number(document.getElementById('po_a').value), payout_date=document.getElementById('po_d').value,
+        err=document.getElementById('po_err');
+  err.classList.add('hidden');
+  if(!amount||!payout_date){ err.textContent='أدخل المبلغ والتاريخ.'; err.classList.remove('hidden'); return; }
+  const {error}=await db.from('owner_payouts').insert({building_name:name,amount,payout_date,
+    period:periodKey(),reference:document.getElementById('po_r').value.trim()||null});
+  if(error){ err.textContent='تعذّر الحفظ: '+error.message; err.classList.remove('hidden'); return; }
+  await logAction('payout','building',name,money(amount)+' ر.س');
+  closeModal(); buildingsView();
+}
+async function delPayout(id){
+  if(!confirm('حذف هذا التحويل من السجل؟')) return;
+  await db.from('owner_payouts').delete().eq('id',id);
+  closeModal(); buildingsView();
+}
+
 /* ───── المباني: تعريف الملكية وفصل الذمم ───── */
 async function buildingsView(){
   const m=document.getElementById('main');
   m.innerHTML=`<p class="text-ink-500">جارٍ التحميل…</p>`;
-  await Promise.all([load.units(),load.payments(),load.expenses(),load.buildings()]);
+  await Promise.all([load.units(),load.payments(),load.expenses(),load.buildings(),load.payouts()]);
 
   m.innerHTML=`
   <div class="mb-6 flex flex-wrap items-end justify-between gap-3">
@@ -415,6 +600,8 @@ async function buildingsView(){
           </select></div>
         <div id="bd_owner_wrap" class="hidden"><label class="eyebrow block mb-2">اسم المالك</label><input id="bd_own" class="field"></div>
         <div id="bd_fee_wrap" class="hidden"><label class="eyebrow block mb-2">نسبة أتعاب الإدارة (%)</label><input id="bd_f" type="number" class="field" value="0"></div>
+        <div><label class="eyebrow block mb-2">بداية عقد الإدارة</label><input id="bd_cs" type="date" class="field"></div>
+        <div><label class="eyebrow block mb-2">نهايته</label><input id="bd_ce" type="date" class="field"></div>
       </div>
       <p id="bd_err" class="text-rose-600 text-sm mt-3 hidden"></p>
       <button onclick="addBuilding()" class="btn-primary mt-4">حفظ المبنى</button>
@@ -448,6 +635,7 @@ function renderBuildings(){
         </div>
         <div class="flex gap-1.5">
           <button onclick="openStatement('${b.name.replace(/'/g,"\\'")}')" class="btn-ghost">كشف الحساب</button>
+          ${b.ownership==='managed'?`<button onclick="openPayout('${b.name.replace(/'/g,"\\'")}')" class="btn-ghost text-teal-700 border-teal-100">تسوية المالك</button>`:''}
           ${b._ghost?`<button onclick="quickRegister('${b.name.replace(/'/g,"\\'")}')" class="btn-ghost text-teal-700 border-teal-100">تسجيل</button>`
                     :`<button onclick="openBuildingEdit('${b.id}')" class="btn-ghost">تعديل</button>`}
         </div>
@@ -470,7 +658,9 @@ async function addBuilding(){
   if(!name){ err.textContent='اسم المبنى مطلوب.'; err.classList.remove('hidden'); return; }
   const {error}=await db.from('buildings').insert({ name, ownership,
     owner_name: ownership==='managed'?(document.getElementById('bd_own').value.trim()||null):null,
-    management_fee_pct: ownership==='managed'?Number(document.getElementById('bd_f').value||0):0 });
+    management_fee_pct: ownership==='managed'?Number(document.getElementById('bd_f').value||0):0,
+    contract_start:document.getElementById('bd_cs').value||null,
+    contract_end:document.getElementById('bd_ce').value||null });
   if(error){ err.textContent=error.code==='23505'?'يوجد مبنى بنفس الاسم.':'تعذّر الحفظ: '+error.message; err.classList.remove('hidden'); return; }
   buildingsView();
 }
@@ -628,22 +818,26 @@ async function addExpense(){
 let payFilter='due';
 async function collectionView(){
   const m=document.getElementById('main');
-  m.innerHTML=head('التحصيل','دفعات الإيجار المستحقة والمسددة');
+  m.innerHTML=`<div class="mb-6 flex flex-wrap items-end justify-between gap-3">
+    <div><h1 class="text-2xl font-bold">التحصيل</h1><p class="text-ink-500 mt-1">${periodLabel()} · دفعات الإيجار المستحقة والمسددة</p></div>
+    ${periodPicker()}
+  </div>`;
   await load.payments();
   const t=today();
-  const od=payments.filter(p=>p.status==='pending'&&p.due_date<t);
-  const up=payments.filter(p=>p.status==='pending'&&p.due_date>=t);
-  const pd=payments.filter(p=>p.status==='paid');
+  const scope=payments.filter(p=>inPeriod(p.due_date));      // كل سنة (أو شهر) على حدة
+  const od=scope.filter(p=>p.status==='pending'&&p.due_date<t);
+  const up=scope.filter(p=>p.status==='pending'&&p.due_date>=t);
+  const pd=scope.filter(p=>p.status==='paid');
   m.innerHTML+=`
   <div class="fade">
     <div class="grid grid-cols-2 lg:grid-cols-3 gap-3 mb-6">
       ${stat('المتأخرات',sumAmt(od),od.length+' دفعة','rose-600')}
       ${stat('مستحق قادم',sumAmt(up),up.length+' دفعة','amber-600')}
-      ${stat('إجمالي التحصيل',sumPaid(pd),pd.length+' سند قبض','teal-700')}
+      ${stat('إجمالي التحصيل',sumPaid(pd),pd.length+' سند قبض · '+periodLabel(),'teal-700')}
     </div>
     <div class="flex gap-2 mb-4 overflow-x-auto pb-1">
       ${chip('due','المستحقة',od.length+up.length)}${chip('overdue','المتأخرة',od.length)}
-      ${chip('paid','المسددة',pd.length)}${chip('all','الكل',payments.length)}
+      ${chip('paid','المسددة',pd.length)}${chip('all','الكل',scope.length)}
     </div>
     <div id="plist" class="space-y-2.5"></div>
   </div>`;
@@ -653,10 +847,11 @@ const chip=(id,label,n)=>`<button onclick="setPayFilter('${id}')" class="shrink-
 function setPayFilter(f){ payFilter=f; collectionView(); }
 function renderPayments(){
   const t=today();
-  let rows=payments;
-  if(payFilter==='due') rows=payments.filter(p=>p.status==='pending');
-  if(payFilter==='overdue') rows=payments.filter(p=>p.status==='pending'&&p.due_date<t);
-  if(payFilter==='paid') rows=payments.filter(p=>p.status==='paid');
+  const scope=payments.filter(p=>inPeriod(p.due_date));
+  let rows=scope;
+  if(payFilter==='due') rows=scope.filter(p=>p.status==='pending');
+  if(payFilter==='overdue') rows=scope.filter(p=>p.status==='pending'&&p.due_date<t);
+  if(payFilter==='paid') rows=scope.filter(p=>p.status==='paid');
   const box=document.getElementById('plist');
   if(!rows.length){ box.innerHTML=empty('لا دفعات في هذا التصنيف. أنشئ عقدًا ليُولَّد جدول دفعاته تلقائيًا.'); return; }
   box.innerHTML=rows.map(p=>{
@@ -668,7 +863,8 @@ function renderPayments(){
         <p class="text-xs mt-1 ${late?'text-rose-600 font-semibold':'text-ink-500'}">الاستحقاق <span class="num">${p.due_date}</span>${late?` · متأخرة <span class="num">${days}</span> يوم`:''}</p>
       </div>
       <div class="text-left shrink-0">
-        <p class="font-bold"><span class="num">${money(p.amount)}</span> <span class="text-xs text-ink-500">ر.س</span></p>
+        <p class="font-bold"><span class="num">${money(Number(p.amount)+Number(p.vat_amount||0))}</span> <span class="text-xs text-ink-500">ر.س</span></p>
+        ${Number(p.vat_amount)?`<p class="text-[.7rem] text-ink-500">شامل ضريبة <span class="num">${money(p.vat_amount)}</span></p>`:''}
         ${p.status==='paid'?`<p class="text-xs text-teal-700 mt-1">سُددت <span class="num">${(p.paid_at||'').slice(0,10)}</span></p>`
           :`<button onclick="openReceipt('${p.id}')" class="btn-ghost mt-1.5 text-teal-700 border-teal-100">تسجيل دفعة</button>`}
       </div>
@@ -1331,6 +1527,9 @@ async function leasesView(){
             <option value="1">دفعة واحدة</option><option value="2">دفعتان</option>
             <option value="3">٣ دفعات</option><option value="4">٤ دفعات</option><option value="12">١٢ دفعة (شهري)</option>
           </select></div>
+        <div><label class="eyebrow block mb-2">رقم عقد إيجار</label><input id="l_ejar" class="field" dir="ltr" placeholder="اختياري"></div>
+        <div><label class="eyebrow block mb-2">التأمين المسترد (ر.س)</label><input id="l_dep" type="number" class="field" value="0"></div>
+        <div><label class="eyebrow block mb-2">غرامة التأخير (% من الدفعة)</label><input id="l_late" type="number" class="field" value="0"></div>
       </div>
       <p id="l_err" class="text-rose-600 text-sm mt-3 hidden"></p>
       <p id="l_plan" class="text-sm text-teal-700 mt-3 font-semibold"></p>
@@ -1394,14 +1593,26 @@ async function addLease(){
     const {data:clash}=await db.from('leases').select('id').eq('unit_id',unit_id).eq('status','active');
     if(clash&&clash.length){ return fail('هذه الوحدة عليها عقد ساري بالفعل. حدّث الصفحة واختر وحدة أخرى.'); }
 
+    const unit=units.find(u=>u.id===unit_id);
+    const vat_pct = unit?.unit_type==='commercial' ? 15 : 0;    // السكني معفى، التجاري خاضع
     const {data,error}=await db.from('leases').insert({
       tenant_id,unit_id,start_date,end_date,status:'active',
-      annual_rent:annual, installments:count, monthly_rent:Math.round(annual/12)
+      annual_rent:annual, installments:count, monthly_rent:Math.round(annual/12),
+      ejar_number:document.getElementById('l_ejar').value.trim()||null,
+      deposit_amount:Number(document.getElementById('l_dep').value||0),
+      late_fee_pct:Number(document.getElementById('l_late').value||0),
+      vat_pct
     }).select().single();
     if(error) return fail('تعذّر حفظ العقد: '+error.message);
 
     await db.from('units').update({status:'occupied'}).eq('id',unit_id);
-    await db.from('payments').insert(buildSchedule(data.id,start_date,end_date,annual,count));
+    const rows=buildSchedule(data.id,start_date,end_date,annual,count,vat_pct);
+    await db.from('payments').insert(rows);
+    await logAction('create','lease',data.id,`${unit?.building_name} وحدة ${unit?.unit_number}`);
+
+    // عقد بتاريخ قديم: اعرض تسوية الدفعات المستحقة قبل اليوم دفعة واحدة
+    const past=rows.filter(r=>r.due_date<today()).length;
+    if(past){ go('collection'); setTimeout(()=>offerBackfill(data.id,past),300); return; }
     go('collection');
   } finally {
     savingLease=false;
@@ -1409,8 +1620,40 @@ async function addLease(){
   }
 }
 
+
+/** عقود بتواريخ قديمة: تسجيل الدفعات السابقة مسددة بتاريخ استحقاقها الأصلي */
+function offerBackfill(leaseId,count){
+  const w=document.createElement('div'); w.id='modal'; w.className='fixed inset-0 z-40 grid place-items-center p-4';
+  w.innerHTML=`<div class="absolute inset-0 bg-ink-900/45" onclick="closeModal()"></div>
+  <div class="card relative w-full max-w-sm p-6 fade">
+    <h3 class="font-bold text-xl">تسوية الدفعات السابقة</h3>
+    <p class="text-ink-500 text-sm mt-2 mb-5">هذا العقد بتاريخ قديم، وتولّدت له <span class="num">${count}</span> دفعة استحقّت قبل اليوم.
+      يمكن تسجيلها مسددة الآن <b>بتاريخ استحقاقها الأصلي</b> بدل إدخالها واحدة واحدة.</p>
+    <label class="flex items-center gap-2 text-sm mb-4">
+      <input type="checkbox" id="bf_all" checked> اعتبارها كلها مسددة
+    </label>
+    <p class="text-xs text-ink-500 mb-4">إن كان بعضها غير محصّل فعلًا، ألغِ الخيار وسجّلها يدويًا من قائمة التحصيل.</p>
+    <div class="flex gap-2">
+      <button onclick="runBackfill('${leaseId}')" class="btn-primary flex-1">تنفيذ</button>
+      <button onclick="closeModal()" class="btn-ghost px-4">تخطّي</button>
+    </div>
+  </div>`;
+  document.body.appendChild(w);
+}
+async function runBackfill(leaseId){
+  if(!document.getElementById('bf_all').checked){ closeModal(); return; }
+  const {data}=await db.from('payments').select('id,due_date,amount').eq('lease_id',leaseId).eq('status','pending').lt('due_date',today());
+  for(const p of (data||[])){
+    await db.from('payments').update({status:'paid',paid_amount:p.amount,
+      paid_at:new Date(p.due_date+'T12:00:00').toISOString(),   // تاريخ السداد = تاريخ الاستحقاق الأصلي
+      payment_method:'transfer',receipt_number:null,notes:'تسوية عقد سابق'}).eq('id',p.id);
+  }
+  await logAction('backfill','lease',leaseId,`${(data||[]).length} دفعة`);
+  closeModal(); collectionView();
+}
+
 /** دفعة لكل قسط: المبلغ = الإيجار السنوي ÷ عدد الدفعات، والفاصل = ١٢ ÷ عدد الدفعات بالأشهر */
-function buildSchedule(lease_id,start,end,annual,count){
+function buildSchedule(lease_id,start,end,annual,count,vat_pct=0){
   const n=Math.max(1,Math.round(Number(count)||1));
   if(!isValidDate(start)||!isValidDate(end)) return [];
   const rows=[], last=new Date(end), d=new Date(start),
@@ -1418,7 +1661,7 @@ function buildSchedule(lease_id,start,end,annual,count){
   let guardCount=0;
   while(d<=last && guardCount++<600){                 // سقف أمان يمنع أي دوران لا نهائي
     const v=ymd(d); if(!v) break;
-    rows.push({lease_id,due_date:v,amount,status:'pending'});
+    rows.push({lease_id,due_date:v,amount,status:'pending',vat_amount:Math.round(amount*Number(vat_pct||0)/100)});
     d.setMonth(d.getMonth()+step);
   }
   return rows;
@@ -1523,6 +1766,11 @@ async function unitsView(){
         <div><label class="eyebrow block mb-2">رقم الوحدة</label><input id="u_n" class="field"></div>
         <div><label class="eyebrow block mb-2">المساحة (م²)</label><input id="u_a" type="number" class="field"></div>
         <div><label class="eyebrow block mb-2">الإيجار السنوي (ر.س)</label><input id="u_r" type="number" class="field"></div>
+        <div><label class="eyebrow block mb-2">نوع الوحدة</label>
+          <select id="u_t" class="field">
+            <option value="residential">سكني (معفى من الضريبة)</option>
+            <option value="commercial">تجاري (خاضع ١٥٪)</option>
+          </select></div>
         <div><label class="eyebrow block mb-2">رقم عداد الكهرباء</label><input id="u_e" class="field" dir="ltr"></div>
         <div><label class="eyebrow block mb-2">رقم عداد المياه</label><input id="u_w" class="field" dir="ltr"></div>
       </div>
@@ -1547,7 +1795,10 @@ function renderUnits(){
           <p class="font-semibold">${u.building_name} — وحدة ${u.unit_number}</p>
           <p class="text-sm text-ink-500">${u.area_sqm?`<span class="num">${u.area_sqm}</span> م² · `:''}<span class="num">${money(u.base_rent)}</span> ر.س/سنة</p>
         </div>
-        <span class="pill shrink-0 ${C[u.status]||''}">${L[u.status]||u.status}</span>
+        <div class="shrink-0 flex flex-col items-end gap-1">
+          <span class="pill ${C[u.status]||''}">${L[u.status]||u.status}</span>
+          ${u.unit_type==='commercial'?'<span class="pill bg-amber-100 text-amber-600">تجاري</span>':''}
+        </div>
       </div>
       <div class="grid grid-cols-2 gap-3 mt-4 pt-4 border-t border-paper-100">
         ${meterCell('الكهرباء',u.electricity_meter,e)}
@@ -1575,6 +1826,7 @@ async function addUnit(){
   if(units.some(u=>u.building_name===building_name&&String(u.unit_number)===unit_number)){
     err.textContent='هذه الوحدة مسجّلة مسبقًا في نفس المبنى.'; err.classList.remove('hidden'); return; }
   const {error}=await db.from('units').insert({building_name,unit_number,area_sqm,base_rent,
+    unit_type:document.getElementById('u_t').value,
     electricity_meter:u_e.value.trim()||null, water_meter:u_w.value.trim()||null});
   if(error){ err.textContent='تعذّرت الإضافة. حاول مرة أخرى.'; err.classList.remove('hidden'); return; }
   unitsView();
@@ -1591,6 +1843,11 @@ function openUnitEdit(id){
       <div><label class="eyebrow block mb-2">رقم الوحدة</label><input id="ed_n" class="field" value="${u.unit_number||''}"></div>
       <div><label class="eyebrow block mb-2">المساحة (م²)</label><input id="ed_a" type="number" class="field" value="${u.area_sqm??''}"></div>
       <div><label class="eyebrow block mb-2">الإيجار السنوي (ر.س)</label><input id="ed_r" type="number" class="field" value="${u.base_rent??''}"></div>
+      <div class="col-span-2"><label class="eyebrow block mb-2">نوع الوحدة</label>
+        <select id="ed_t" class="field">
+          <option value="residential" ${u.unit_type!=='commercial'?'selected':''}>سكني (معفى من الضريبة)</option>
+          <option value="commercial" ${u.unit_type==='commercial'?'selected':''}>تجاري (خاضع ١٥٪)</option>
+        </select></div>
       <div><label class="eyebrow block mb-2">عداد الكهرباء</label><input id="ed_e" class="field" dir="ltr" value="${u.electricity_meter||''}"></div>
       <div><label class="eyebrow block mb-2">عداد المياه</label><input id="ed_w" class="field" dir="ltr" value="${u.water_meter||''}"></div>
       <div class="col-span-2"><label class="eyebrow block mb-2">الحالة</label>
@@ -1620,7 +1877,7 @@ async function saveUnitEdit(id){
   const {error}=await db.from('units').update({ building_name, unit_number, base_rent,
     area_sqm: ed_a.value?Number(ed_a.value):null,
     electricity_meter: ed_e.value.trim()||null, water_meter: ed_w.value.trim()||null,
-    status: ed_s.value }).eq('id',id);
+    unit_type: ed_t.value, status: ed_s.value }).eq('id',id);
   if(error){ err.textContent='تعذّر الحفظ. حاول مرة أخرى.'; err.classList.remove('hidden'); return; }
   closeModal(); unitsView();
 }
@@ -1681,6 +1938,153 @@ async function saveReading(unit_id){
   closeModal(); unitsView();
 }
 
+
+/* ───── الإعدادات: الصلاحيات، الاستيراد، التصدير، سجل التدقيق ───── */
+let appUsers=[], auditRows=[];
+
+async function settingsView(){
+  const m=document.getElementById('main');
+  m.innerHTML=head('الإعدادات','الصلاحيات وإدارة البيانات');
+  appUsers=(await db.from('app_users').select('*').order('email')).data||[];
+  auditRows=(await db.from('audit_log').select('*').order('created_at',{ascending:false}).limit(40)).data||[];
+  await Promise.all([load.units(),load.tenants(),load.buildings()]);
+
+  m.innerHTML+=`
+  <div class="fade space-y-6">
+    <div class="card p-5">
+      <p class="eyebrow">حسابك</p>
+      <p class="font-bold mt-1">${ME.full_name||user.email}</p>
+      <p class="text-sm text-ink-500">${ROLE_LABEL[ME.role]||ME.role}</p>
+    </div>
+
+    <div class="card p-5" ${ME.role==='admin'||ME.role==='operator'?'':'style="display:none"'}>
+      <h2 class="font-bold text-lg mb-1">الصلاحيات</h2>
+      <p class="text-sm text-ink-500 mb-4">أضف بريد الشخص هنا بعد إنشاء حسابه في Supabase، وحدّد دوره.</p>
+      <div class="grid sm:grid-cols-3 gap-3">
+        <input id="au_e" class="field" dir="ltr" placeholder="البريد الإلكتروني">
+        <input id="au_n" class="field" placeholder="الاسم">
+        <select id="au_r" class="field">${Object.entries(ROLE_LABEL).map(([k,v])=>`<option value="${k}">${v}</option>`).join('')}</select>
+      </div>
+      <button onclick="addAppUser()" class="btn-primary mt-3">حفظ</button>
+      <div class="mt-5 space-y-2">
+        ${appUsers.map(u=>`<div class="flex items-center justify-between gap-3 border border-paper-100 rounded-lg p-3">
+          <div class="min-w-0"><p class="font-semibold truncate">${u.full_name||u.email}</p>
+            <p class="text-xs text-ink-500 num truncate">${u.email}</p></div>
+          <div class="flex items-center gap-2 shrink-0">
+            <select onchange="setRole('${u.id}',this.value)" class="field w-auto py-1 text-sm">
+              ${Object.entries(ROLE_LABEL).map(([k,v])=>`<option value="${k}" ${u.role===k?'selected':''}>${v}</option>`).join('')}
+            </select>
+            <button onclick="delAppUser('${u.id}')" class="btn-ghost text-rose-600 border-rose-100">حذف</button>
+          </div>
+        </div>`).join('')||'<p class="text-sm text-ink-300">لا حسابات مضافة — أي بريد غير مضاف هنا يدخل كمشغّل افتراضيًا.</p>'}
+      </div>
+    </div>
+
+    <div class="card p-5" ${canEdit()?'':'style="display:none"'}>
+      <h2 class="font-bold text-lg mb-1">استيراد جماعي</h2>
+      <p class="text-sm text-ink-500 mb-4">الصق من Excel — عمود لكل حقل، صف لكل سجل، بدون سطر عناوين.</p>
+      <div class="flex gap-2 mb-3">
+        <select id="im_t" class="field w-auto" onchange="importHint()">
+          <option value="units">وحدات</option>
+          <option value="tenants">مستأجرون</option>
+        </select>
+        <button onclick="runImport()" class="btn-primary shrink-0">استيراد</button>
+      </div>
+      <p id="im_hint" class="text-xs text-ink-500 mb-2"></p>
+      <textarea id="im_data" rows="6" class="field" dir="ltr" placeholder="الصق هنا…"></textarea>
+      <p id="im_out" class="text-sm mt-3"></p>
+    </div>
+
+    <div class="card p-5">
+      <h2 class="font-bold text-lg mb-1">تصدير ونسخ احتياطي</h2>
+      <p class="text-sm text-ink-500 mb-4">ملفات CSV تفتح مباشرة في Excel.</p>
+      <div class="flex flex-wrap gap-2">
+        ${['units','tenants','leases','payments','expenses','maintenance'].map(t=>
+          `<button onclick="exportTable('${t}')" class="btn-ghost">${({units:'الوحدات',tenants:'المستأجرون',leases:'العقود',payments:'الدفعات',expenses:'المصروفات',maintenance:'الصيانة'})[t]}</button>`).join('')}
+      </div>
+    </div>
+
+    <div class="card p-5">
+      <h2 class="font-bold text-lg mb-4">سجل التدقيق</h2>
+      <div class="space-y-1.5 max-h-72 overflow-y-auto">
+        ${auditRows.map(a=>`<div class="flex justify-between gap-3 text-sm border-b border-paper-100 pb-1.5">
+          <span class="min-w-0 truncate"><span class="font-medium">${({create:'إنشاء',renew:'تجديد',payout:'تحويل للمالك',backfill:'تسوية سابقة'})[a.action]||a.action}</span>
+            <span class="text-ink-500"> ${a.details||''}</span></span>
+          <span class="shrink-0 text-ink-500 text-xs num">${(a.created_at||'').slice(0,16).replace('T',' ')}</span>
+        </div>`).join('')||'<p class="text-sm text-ink-300">لا حركات مسجّلة بعد.</p>'}
+      </div>
+    </div>
+  </div>`;
+  importHint();
+}
+
+function importHint(){
+  const t=document.getElementById('im_t').value;
+  document.getElementById('im_hint').textContent = t==='units'
+    ? 'الترتيب: المبنى | رقم الوحدة | المساحة | الإيجار السنوي | سكني أو تجاري'
+    : 'الترتيب: الاسم | الجوال | رقم الهوية';
+}
+
+async function runImport(){
+  const t=document.getElementById('im_t').value, raw=document.getElementById('im_data').value.trim(),
+        out=document.getElementById('im_out');
+  if(!raw) return;
+  const lines=raw.split(/\r?\n/).filter(x=>x.trim());
+  const split=l=>l.split(/\t|,|؛|;/).map(x=>x.trim());
+  let ok=0, bad=[];
+  for(const [i,line] of lines.entries()){
+    const c=split(line);
+    try{
+      if(t==='units'){
+        if(!c[0]||!c[1]) { bad.push(i+1); continue; }
+        const {error}=await db.from('units').insert({building_name:c[0],unit_number:c[1],
+          area_sqm:c[2]?Number(c[2]):null, base_rent:Number(c[3]||0),
+          unit_type:(c[4]||'').includes('تجار')?'commercial':'residential'});
+        if(error){ bad.push(i+1); continue; }
+      } else {
+        if(!c[0]||!c[1]) { bad.push(i+1); continue; }
+        const {error}=await db.from('tenants').insert({full_name:c[0],phone:c[1],national_id:c[2]||null});
+        if(error){ bad.push(i+1); continue; }
+      }
+      ok++;
+    }catch(e){ bad.push(i+1); }
+  }
+  out.innerHTML = `<span class="text-teal-700 font-semibold">نجح <span class="num">${ok}</span> سجل.</span>`
+    + (bad.length?` <span class="text-rose-600">تعذّرت الصفوف: ${bad.join('، ')} — تحقق من التكرار أو نقص البيانات.</span>`:'');
+  if(ok) await logAction('import',t,'',ok+' سجل');
+  document.getElementById('im_data').value='';
+}
+
+async function exportTable(name){
+  const {data,error}=await db.from(name).select('*');
+  if(error||!data?.length) return showError('لا بيانات للتصدير في هذا الجدول.');
+  const cols=[...new Set(data.flatMap(r=>Object.keys(r)))];
+  const esc=v=>{ const x=v==null?'':(typeof v==='object'?JSON.stringify(v):String(v)); return /[",\n]/.test(x)?'"'+x.replace(/"/g,'""')+'"':x; };
+  const csv='\uFEFF'+[cols.join(','),...data.map(r=>cols.map(c=>esc(r[c])).join(','))].join('\n');
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));
+  a.download=`${name}-${today()}.csv`; a.click(); URL.revokeObjectURL(a.href);
+}
+
+async function addAppUser(){
+  const email=document.getElementById('au_e').value.trim().toLowerCase();
+  if(!email) return showError('أدخل البريد الإلكتروني.');
+  const {error}=await db.from('app_users').insert({email,full_name:document.getElementById('au_n').value.trim()||null,
+    role:document.getElementById('au_r').value});
+  if(error) return showError(error.code==='23505'?'هذا البريد مضاف مسبقًا.':'تعذّر الحفظ: '+error.message);
+  settingsView();
+}
+async function setRole(id,role){
+  const {error}=await db.from('app_users').update({role}).eq('id',id);
+  if(error) return showError('تعذّر التغيير: '+error.message);
+  await logAction('role','app_user',id,ROLE_LABEL[role]);
+}
+async function delAppUser(id){
+  if(!confirm('حذف هذا الحساب من الصلاحيات؟ سيعود لصلاحية المشغّل الافتراضية.')) return;
+  await db.from('app_users').delete().eq('id',id);
+  settingsView();
+}
+
 /* ───── المستأجرون ───── */
 let tq='';
 async function tenantsView(){
@@ -1693,6 +2097,7 @@ async function tenantsView(){
         <div class="sm:col-span-2"><label class="eyebrow block mb-2">الاسم الكامل</label><input id="t_n" class="field"></div>
         <div><label class="eyebrow block mb-2">رقم الجوال</label><input id="t_p" class="field" dir="ltr" placeholder="05xxxxxxxx"></div>
         <div><label class="eyebrow block mb-2">رقم الهوية</label><input id="t_i" class="field" dir="ltr"></div>
+        <div><label class="eyebrow block mb-2">انتهاء الهوية / الإقامة</label><input id="t_x" type="date" class="field"></div>
       </div>
       <p id="t_err" class="text-rose-600 text-sm mt-3 hidden"></p>
       <button onclick="addTenant()" class="btn-primary mt-4">إضافة المستأجر</button>
@@ -1700,7 +2105,7 @@ async function tenantsView(){
     <input class="field mb-4" placeholder="ابحث بالاسم أو الجوال" oninput="searchTenants(this.value)">
     <div id="tlist" class="space-y-2.5"></div>
   </div>`;
-  await load.tenants(tq); renderTenants();
+  await Promise.all([load.tenants(tq),load.leases()]); renderTenants();
 }
 let tTimer;
 function searchTenants(v){ tq=v; clearTimeout(tTimer); tTimer=setTimeout(async()=>{ await load.tenants(tq); renderTenants(); },350); }
@@ -1711,8 +2116,17 @@ function renderTenants(){
   const C={active:'bg-teal-100 text-teal-700',inactive:'bg-paper-100 text-ink-500',blacklisted:'bg-rose-100 text-rose-600'};
   box.innerHTML=tenants.map(t=>`<div class="card p-4 flex items-center justify-between gap-3">
     <div class="min-w-0">
-      <p class="font-semibold truncate">${t.full_name}</p>
+      <p class="font-semibold truncate">${t.full_name}
+        ${(()=>{const my=leases.filter(l=>l.tenant_id===t.id);
+          const act=my.filter(l=>l.status==='active'||l.status==='renewed');
+          return act.length?`<span class="pill bg-teal-100 text-teal-700 mr-1">عقد ساري<span class="num">${act.length>1?' ×'+act.length:''}</span></span>`
+               : my.length?`<span class="pill bg-paper-100 text-ink-500 mr-1">عقد سابق</span>`
+                          :`<span class="pill bg-amber-100 text-amber-600 mr-1">بلا عقد</span>`;})()}
+      </p>
       <p class="text-sm text-ink-500"><span class="num">${t.phone}</span>${t.national_id?` · <span class="num">${t.national_id}</span>`:''}</p>
+      ${(()=>{ if(!t.id_expiry) return '';
+        const days=Math.round((new Date(t.id_expiry)-new Date())/864e5);
+        return days<60?`<p class="text-xs mt-1 ${days<0?'text-rose-600':'text-amber-600'} font-semibold">${days<0?'الهوية منتهية':'الهوية تنتهي خلال '}<span class="num">${Math.abs(days)}</span> يوم</p>`:''; })()}
     </div>
     <div class="flex flex-col items-end gap-1.5 shrink-0">
       <span class="pill ${C[t.status]||''}">${L[t.status]||t.status}</span>
@@ -1727,7 +2141,7 @@ async function addTenant(){
   const full_name=t_n.value.trim(),phone=t_p.value.trim(),national_id=t_i.value.trim(),err=document.getElementById('t_err');
   err.classList.add('hidden');
   if(!full_name||!phone){ err.textContent='الاسم ورقم الجوال مطلوبان.'; err.classList.remove('hidden'); return; }
-  const {error}=await db.from('tenants').insert({full_name,phone,national_id:national_id||null});
+  const {error}=await db.from('tenants').insert({full_name,phone,national_id:national_id||null,id_expiry:document.getElementById('t_x').value||null});
   if(error){ err.textContent=error.code==='23505'?'رقم الجوال أو الهوية مسجّل لمستأجر آخر.':'تعذّرت الإضافة. حاول مرة أخرى.'; err.classList.remove('hidden'); return; }
   tenantsView();
 }
@@ -1741,6 +2155,7 @@ function openTenantEdit(id){
     <div class="grid grid-cols-2 gap-3">
       <div><label class="eyebrow block mb-2">رقم الجوال</label><input id="te_phone" class="field" dir="ltr" value="${t.phone||''}"></div>
       <div><label class="eyebrow block mb-2">رقم الهوية</label><input id="te_id" class="field" dir="ltr" value="${t.national_id||''}"></div>
+      <div class="col-span-2"><label class="eyebrow block mb-2">انتهاء الهوية / الإقامة</label><input id="te_x" type="date" class="field" value="${t.id_expiry||''}"></div>
     </div>
     <p id="te_err" class="text-rose-600 text-sm mt-3 hidden"></p>
     <div class="flex gap-2 mt-5">
@@ -1758,7 +2173,7 @@ async function saveTenantEdit(id){
         err=document.getElementById('te_err');
   err.classList.add('hidden');
   if(!full_name||!phone){ err.textContent='الاسم ورقم الجوال مطلوبان.'; err.classList.remove('hidden'); return; }
-  const {error}=await db.from('tenants').update({full_name,phone,national_id:national_id||null}).eq('id',id);
+  const {error}=await db.from('tenants').update({full_name,phone,national_id:national_id||null,id_expiry:document.getElementById('te_x').value||null}).eq('id',id);
   if(error){ err.textContent=error.code==='23505'?'رقم الجوال أو الهوية مسجّل لمستأجر آخر.':'تعذّر الحفظ. حاول مرة أخرى.'; err.classList.remove('hidden'); return; }
   closeModal(); await load.tenants(tq); renderTenants();
 }
