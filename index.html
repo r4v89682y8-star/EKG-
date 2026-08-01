@@ -7,62 +7,134 @@
 <title>عُمران — إدارة الأملاك</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Readex+Pro:wght@400;500;600;700&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=Rubik:wght@500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Readex+Pro:wght@300;400;500;600;700&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=Almarai:wght@400;700;800&family=Tajawal:wght@400;500;700;800&family=Cairo:wght@400;600;700;900&family=Rubik:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.tailwindcss.com"></script>
 <script>
 tailwind.config = { theme:{ extend:{
   colors:{
-    ink:{900:'#0E1621',700:'#39434F',500:'#6C7683',300:'#AAB2BC'},
-    paper:{0:'#FFFFFF',50:'#F6F8F9',100:'#EDF0F2',200:'#DFE4E8'},
-    teal:{900:'#083A31',700:'#0E5B4C',600:'#137A65',300:'#7FC4B2',100:'#DCEFE9'},
-    amber:{600:'#A97015',100:'#FAEDD6'},
-    rose:{600:'#A93838',100:'#FAE1E1'},
+    ink:{900:'var(--ink-900)',700:'var(--ink-700)',500:'var(--ink-500)',300:'var(--ink-300)'},
+    paper:{0:'var(--surface)',50:'var(--paper-50)',100:'var(--paper-100)',200:'var(--paper-200)'},
+    teal:{900:'var(--brand-900)',700:'var(--brand-700)',600:'var(--brand-600)',300:'var(--brand-300)',100:'var(--brand-100)'},
+    amber:{600:'var(--gold-600)',100:'var(--gold-100)'},
+    rose:{600:'var(--red-600)',100:'var(--red-100)'},
   },
-  fontFamily:{ sans:['"IBM Plex Sans Arabic"','system-ui','sans-serif'], display:['"Readex Pro"','system-ui','sans-serif'], num:['Rubik','system-ui','sans-serif'] },
+  fontFamily:{ sans:['var(--font-body)'], display:['var(--font-display)'], num:['var(--font-num)'] },
 }}}
 </script>
 <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
 <style>
-  html { font-size:17px; }
-  body { font-family:'IBM Plex Sans Arabic',system-ui,sans-serif; color:#0E1621;
-         background:
-           radial-gradient(1100px 480px at 88% -8%, #E4F2ED 0%, transparent 62%),
-           radial-gradient(900px 420px at 4% 4%, #F2EDE3 0%, transparent 55%),
-           #F6F8F9;
-         background-attachment:fixed; }
-  h1,h2,h3,.display { font-family:'Readex Pro',system-ui,sans-serif; letter-spacing:-.015em; }
-  .num { font-family:Rubik,system-ui,sans-serif; font-feature-settings:'tnum'; direction:ltr; display:inline-block; }
-  .field { width:100%; border:1px solid #DFE4E8; background:#fff; border-radius:.7rem; padding:.65rem .8rem; font-size:1rem; font-family:inherit; transition:border-color .15s,box-shadow .15s; }
-  .field:hover { border-color:#C7D0D6; }
-  .field:focus { outline:none; border-color:#137A65; box-shadow:0 0 0 3px rgba(19,122,101,.13); }
-  .btn-primary { background:linear-gradient(135deg,#0E5B4C,#137A65); color:#fff; border-radius:.7rem; padding:.7rem 1.25rem;
-                 font-weight:600; font-size:1rem; font-family:'Readex Pro',sans-serif;
-                 box-shadow:0 1px 2px rgba(8,58,49,.2),0 6px 16px rgba(8,58,49,.16); transition:transform .12s,box-shadow .2s,filter .2s; }
-  .btn-primary:hover { filter:brightness(1.07); box-shadow:0 2px 4px rgba(8,58,49,.22),0 10px 24px rgba(8,58,49,.2); }
-  .btn-primary:active { transform:translateY(1px); }
-  .btn-primary:disabled { opacity:.6; box-shadow:none; }
-  .btn-ghost { border:1px solid #DFE4E8; background:#fff; border-radius:.6rem; padding:.4rem .8rem; font-size:.85rem; transition:background .15s,border-color .15s; }
-  .btn-ghost:hover { background:#F6F8F9; border-color:#C7D0D6; }
-  .card { background:#fff; border:1px solid rgba(14,22,33,.06); border-radius:1.1rem;
-          box-shadow:0 1px 2px rgba(14,22,33,.04),0 8px 24px -6px rgba(14,22,33,.07); transition:box-shadow .25s,transform .2s; }
-  .eyebrow { font-size:.75rem; letter-spacing:.06em; color:#6C7683; font-weight:600; }
-  .navlink { display:flex; align-items:center; gap:.65rem; padding:.68rem .85rem; border-radius:.7rem; font-size:1rem; color:#39434F; width:100%; text-align:right; font-family:'Readex Pro',sans-serif; transition:background .15s,color .15s; }
-  .navlink:hover { background:#EDF0F2; }
-  .navlink.on { background:linear-gradient(135deg,#083A31,#0E5B4C); color:#fff; box-shadow:0 4px 14px -4px rgba(8,58,49,.5); }
-  .pill { padding:.15rem .55rem; border-radius:.45rem; font-size:.78rem; font-weight:600; }
-  th { font-size:.8rem; color:#6C7683; font-weight:600; text-align:right; padding:.65rem .5rem; border-bottom:1px solid #EDF0F2; }
-  td { padding:.75rem .5rem; font-size:.92rem; border-top:1px solid #EDF0F2; }
-  tbody tr { transition:background .15s; }
-  tbody tr:hover { background:#FAFBFC; }
-  summary { list-style:none; } summary::-webkit-details-marker { display:none; }
-  summary::before { content:'+'; display:inline-grid; place-items:center; width:1.4rem; height:1.4rem; margin-left:.5rem;
-                    border-radius:.45rem; background:#DCEFE9; color:#0E5B4C; font-weight:700; font-size:1rem; transition:transform .2s; }
-  details[open] summary::before { content:'−'; transform:rotate(180deg); }
-  *:focus-visible { outline:2px solid #137A65; outline-offset:2px; }
-  @media (prefers-reduced-motion:no-preference){
-    .card:hover { box-shadow:0 2px 4px rgba(14,22,33,.05),0 14px 32px -8px rgba(14,22,33,.1); }
-    .fade{animation:f .3s cubic-bezier(.22,1,.36,1) both} @keyframes f{from{opacity:0;transform:translateY(6px)}to{opacity:1}}
-  }
+/* ═══ الثيمات — مستلهمة من عمارة جدة القديمة ═══ */
+:root{
+  /* بلد — حجر منقبي، أخضر الرواشين، نحاس */
+  --bg:#F5F2EC; --bg-tint-1:#E9EEE9; --bg-tint-2:#F2EAD9; --surface:#FFFDF9;
+  --paper-50:#F7F4EE; --paper-100:#EDE8DF; --paper-200:#DED7CA;
+  --ink-900:#171A17; --ink-700:#3E443E; --ink-500:#6F7469; --ink-300:#A9AC9F;
+  --brand-900:#12312A; --brand-700:#1B5347; --brand-600:#26705F; --brand-300:#8FBDAE; --brand-100:#DCE9E2;
+  --gold-600:#96692B; --gold-100:#F3E7D0;
+  --red-600:#A03B32; --red-100:#F5E0DC;
+  --font-display:'Readex Pro'; --font-body:'IBM Plex Sans Arabic'; --font-num:'Rubik';
+  --fs:17px; --radius:14px;
+}
+[data-theme="ink"]{
+  --bg:#F4F6F8; --bg-tint-1:#E6ECF3; --bg-tint-2:#EDEAF3; --surface:#FFFFFF;
+  --paper-50:#F6F8FA; --paper-100:#EBEFF3; --paper-200:#DBE1E8;
+  --ink-900:#101725; --ink-700:#39424F; --ink-500:#6A7382; --ink-300:#A6AEBA;
+  --brand-900:#131F3D; --brand-700:#1F3A6E; --brand-600:#2C55A0; --brand-300:#9DB6DD; --brand-100:#E1E9F6;
+  --gold-600:#8A6A18; --gold-100:#F3EBD3; --red-600:#A5343C; --red-100:#F7DEE0;
+}
+[data-theme="palm"]{
+  --bg:#F6F8F9; --bg-tint-1:#E4F2ED; --bg-tint-2:#F2EDE3; --surface:#FFFFFF;
+  --paper-50:#F6F8F9; --paper-100:#EDF0F2; --paper-200:#DFE4E8;
+  --ink-900:#0E1621; --ink-700:#39434F; --ink-500:#6C7683; --ink-300:#AAB2BC;
+  --brand-900:#083A31; --brand-700:#0E5B4C; --brand-600:#137A65; --brand-300:#7FC4B2; --brand-100:#DCEFE9;
+  --gold-600:#A97015; --gold-100:#FAEDD6; --red-600:#A93838; --red-100:#FAE1E1;
+}
+[data-theme="night"]{
+  --bg:#0D1214; --bg-tint-1:#12211D; --bg-tint-2:#1A1712; --surface:#151C1F;
+  --paper-50:#1A2225; --paper-100:#232C30; --paper-200:#2E393E;
+  --ink-900:#EDF0EF; --ink-700:#C2CAC8; --ink-500:#8B9694; --ink-300:#5D6866;
+  --brand-900:#0B3F35; --brand-700:#2E9077; --brand-600:#3FAE90; --brand-300:#5FBFA5; --brand-100:#173A33;
+  --gold-600:#D4A24C; --gold-100:#33291A; --red-600:#E0776F; --red-100:#3A211F;
+}
+
+html{ font-size:var(--fs); }
+body{
+  font-family:var(--font-body),system-ui,sans-serif; color:var(--ink-900);
+  background:
+    radial-gradient(1200px 520px at 88% -10%, var(--bg-tint-1) 0%, transparent 60%),
+    radial-gradient(900px 440px at 2% 2%, var(--bg-tint-2) 0%, transparent 52%),
+    var(--bg);
+  background-attachment:fixed;
+  transition:background-color .3s, color .3s;
+}
+h1,h2,h3,.display{ font-family:var(--font-display),system-ui,sans-serif; letter-spacing:-.02em; font-weight:600; }
+h1{ line-height:1.25; }
+.num{ font-family:var(--font-num),system-ui,sans-serif; font-feature-settings:'tnum' 1,'lnum' 1; font-variant-numeric:tabular-nums; direction:ltr; display:inline-block; letter-spacing:-.01em; }
+
+.field{ width:100%; border:1px solid var(--paper-200); background:var(--surface); color:var(--ink-900);
+  border-radius:calc(var(--radius) - 4px); padding:.65rem .8rem; font-size:1rem; font-family:inherit;
+  transition:border-color .15s, box-shadow .15s; }
+.field:hover{ border-color:var(--brand-300); }
+.field:focus{ outline:none; border-color:var(--brand-600); box-shadow:0 0 0 3px color-mix(in srgb, var(--brand-600) 18%, transparent); }
+
+.btn-primary{ background:linear-gradient(140deg,var(--brand-700),var(--brand-600)); color:#fff;
+  border-radius:calc(var(--radius) - 4px); padding:.7rem 1.25rem; font-weight:600; font-size:1rem;
+  font-family:var(--font-display),sans-serif; letter-spacing:-.01em;
+  box-shadow:0 1px 2px color-mix(in srgb,var(--brand-900) 30%,transparent), 0 8px 20px -6px color-mix(in srgb,var(--brand-900) 45%,transparent);
+  transition:transform .12s, box-shadow .2s, filter .2s; }
+.btn-primary:hover{ filter:brightness(1.08); box-shadow:0 2px 4px color-mix(in srgb,var(--brand-900) 30%,transparent), 0 12px 28px -8px color-mix(in srgb,var(--brand-900) 50%,transparent); }
+.btn-primary:active{ transform:translateY(1px); }
+.btn-primary:disabled{ opacity:.55; box-shadow:none; }
+
+.btn-ghost{ border:1px solid var(--paper-200); background:var(--surface); color:var(--ink-700);
+  border-radius:calc(var(--radius) - 6px); padding:.4rem .8rem; font-size:.85rem;
+  transition:background .15s, border-color .15s, color .15s; }
+.btn-ghost:hover{ background:var(--paper-50); border-color:var(--brand-300); color:var(--ink-900); }
+
+.card{ background:var(--surface); border:1px solid color-mix(in srgb,var(--ink-900) 7%,transparent);
+  border-radius:var(--radius); box-shadow:0 1px 2px color-mix(in srgb,var(--ink-900) 5%,transparent),
+  0 10px 28px -12px color-mix(in srgb,var(--ink-900) 18%,transparent);
+  transition:box-shadow .25s, border-color .25s; }
+
+.eyebrow{ font-size:.72rem; letter-spacing:.09em; color:var(--ink-500); font-weight:600; }
+
+.navlink{ display:flex; align-items:center; gap:.7rem; padding:.66rem .85rem; border-radius:calc(var(--radius) - 4px);
+  font-size:.98rem; color:var(--ink-700); width:100%; text-align:right;
+  font-family:var(--font-display),sans-serif; transition:background .15s, color .15s; position:relative; }
+.navlink:hover{ background:var(--paper-100); color:var(--ink-900); }
+.navlink.on{ background:linear-gradient(140deg,var(--brand-900),var(--brand-700)); color:#fff; font-weight:600;
+  box-shadow:0 6px 16px -6px color-mix(in srgb,var(--brand-900) 65%,transparent); }
+
+.pill{ padding:.16rem .58rem; border-radius:.45rem; font-size:.76rem; font-weight:600; white-space:nowrap; }
+
+/* الجداول: خط دفتر — مسطرة رفيعة وأرقام مصفوفة */
+table{ border-collapse:collapse; }
+th{ font-size:.78rem; color:var(--ink-500); font-weight:600; text-align:right; padding:.7rem .55rem;
+  border-bottom:1.5px solid var(--paper-200); letter-spacing:.02em; }
+td{ padding:.78rem .55rem; font-size:.92rem; border-top:1px solid var(--paper-100); color:var(--ink-900); }
+tbody tr{ transition:background .15s; }
+tbody tr:hover{ background:var(--paper-50); }
+
+summary{ list-style:none; cursor:pointer; font-family:var(--font-display),sans-serif; }
+summary::-webkit-details-marker{ display:none; }
+summary::before{ content:'+'; display:inline-grid; place-items:center; width:1.45rem; height:1.45rem;
+  margin-left:.55rem; border-radius:.45rem; background:var(--brand-100); color:var(--brand-700);
+  font-weight:700; font-size:1.05rem; transition:transform .25s, background .2s; }
+details[open] summary::before{ content:'−'; transform:rotate(180deg); }
+
+/* شريط الإشغال — خلايا شبكية مستوحاة من الرواشين */
+.lattice{ display:flex; gap:3px; flex-wrap:wrap; }
+.lattice span{ position:relative; border-radius:3px; transition:transform .18s, filter .18s; }
+.lattice span:hover{ transform:translateY(-2px); filter:brightness(1.12); z-index:1; }
+
+*:focus-visible{ outline:2px solid var(--brand-600); outline-offset:2px; border-radius:4px; }
+::selection{ background:var(--brand-100); color:var(--brand-900); }
+
+@media (prefers-reduced-motion:no-preference){
+  .card:hover{ box-shadow:0 2px 6px color-mix(in srgb,var(--ink-900) 6%,transparent), 0 18px 40px -14px color-mix(in srgb,var(--ink-900) 26%,transparent); }
+  .fade{ animation:f .32s cubic-bezier(.22,1,.36,1) both } @keyframes f{ from{opacity:0;transform:translateY(7px)} to{opacity:1} }
+}
+@media (prefers-reduced-motion:reduce){ *{ animation:none!important; transition:none!important; } }
 </style>
 </head>
 <body>
@@ -72,13 +144,179 @@ tailwind.config = { theme:{ extend:{
   const SUPABASE_KEY = "sb_publishable_26WQJ1wSFyt3eNDdkj2yyw_RwYDK6yf";
   const BRAND = "أصول";              // ← اسم النظام، غيّره من هنا
   const BRAND_SUB = "إدارة وتشغيل وصيانة الأصول العقارية";
-  const VERSION = "v18";                // للتأكد من أن النسخة المنشورة محدّثة
+  const VERSION = "v20";                // للتأكد من أن النسخة المنشورة محدّثة
 </script>
 
 <div id="app"></div>
 
 <script>
 const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+/* ═══ المظهر: ثيم وخط وحجم — يُحفظ لكل مستخدم ═══ */
+const THEMES = {
+  balad:{ label:'بلد',  note:'حجر جدة القديمة وأخضر الرواشين', sw:['#F5F2EC','#1B5347','#96692B'] },
+  ink:  { label:'حِبر', note:'أزرق رسمي بطابع مالي',            sw:['#F4F6F8','#1F3A6E','#8A6A18'] },
+  palm: { label:'نخيل', note:'أخضر فيروزي هادئ',               sw:['#F6F8F9','#0E5B4C','#A97015'] },
+  night:{ label:'ليل',  note:'داكن مريح للعمل الطويل',          sw:['#0D1214','#2E9077','#D4A24C'] },
+};
+const FONTS = {
+  readex:{ label:'ريدكس',  display:'Readex Pro',           body:'IBM Plex Sans Arabic', note:'هندسي حديث' },
+  plex:  { label:'بلكس',   display:'IBM Plex Sans Arabic', body:'IBM Plex Sans Arabic', note:'محايد واضح' },
+  almarai:{label:'المراعي',display:'Almarai',              body:'Almarai',              note:'عريض وصريح' },
+  tajawal:{label:'تجوال',  display:'Tajawal',              body:'Tajawal',              note:'خفيف وأنيق' },
+  cairo: { label:'القاهرة',display:'Cairo',                body:'Cairo',                note:'كلاسيكي متزن' },
+};
+const SIZES = { compact:{label:'مضغوط',px:'15.5px'}, normal:{label:'معتاد',px:'17px'}, large:{label:'مريح',px:'18.5px'} };
+
+const store=(k,v)=>{ try{ v===undefined?null:localStorage.setItem(k,v); return localStorage.getItem(k); }catch(e){ return null; } };
+let UI = {
+  theme: store('ui_theme')||'balad',
+  font:  store('ui_font') ||'readex',
+  size:  store('ui_size') ||'normal',
+};
+
+function applyUI(){
+  const r=document.documentElement;
+  r.setAttribute('data-theme',UI.theme);
+  r.style.setProperty('--font-display',`'${FONTS[UI.font].display}'`);
+  r.style.setProperty('--font-body',`'${FONTS[UI.font].body}'`);
+  r.style.setProperty('--fs',SIZES[UI.size].px);
+  document.querySelector('meta[name="theme-color"]')?.remove();
+  const m=document.createElement('meta'); m.name='theme-color';
+  m.content=getComputedStyle(r).getPropertyValue('--bg').trim(); document.head.appendChild(m);
+}
+
+function setUI(k,v){ UI[k]=v; store('ui_'+k,v); applyUI(); if(document.getElementById('appearance')) renderAppearance(); }
+
+function openAppearance(){
+  const w=document.createElement('div'); w.id='modal'; w.className='fixed inset-0 z-40 grid place-items-center p-4 overflow-y-auto';
+  w.innerHTML=`<div class="absolute inset-0" style="background:color-mix(in srgb,var(--ink-900) 45%,transparent)" onclick="closeModal()"></div>
+    <div class="card relative w-full max-w-md p-6 fade my-8" id="appearance"></div>`;
+  document.body.appendChild(w); renderAppearance();
+}
+
+function renderAppearance(){
+  const box=document.getElementById('appearance'); if(!box) return;
+  box.innerHTML=`
+    <h3 class="font-bold text-xl">المظهر</h3>
+    <p class="text-ink-500 text-sm mt-1 mb-6">اختيارك يُحفظ على هذا الجهاز ولا يؤثّر على بقية الفريق.</p>
+
+    <p class="eyebrow mb-2.5">اللوحة اللونية</p>
+    <div class="grid grid-cols-2 gap-2.5 mb-6">
+      ${Object.entries(THEMES).map(([k,t])=>`
+        <button onclick="setUI('theme','${k}')" class="text-right p-3 rounded-xl border transition"
+          style="border-color:${UI.theme===k?'var(--brand-600)':'var(--paper-200)'};background:${UI.theme===k?'var(--brand-100)':'var(--surface)'}">
+          <span class="flex gap-1 mb-2">${t.sw.map(c=>`<span style="width:16px;height:16px;border-radius:5px;background:${c};border:1px solid rgba(0,0,0,.08)"></span>`).join('')}</span>
+          <span class="block font-semibold text-sm">${t.label}</span>
+          <span class="block text-xs text-ink-500 mt-0.5">${t.note}</span>
+        </button>`).join('')}
+    </div>
+
+    <p class="eyebrow mb-2.5">الخط</p>
+    <div class="space-y-2 mb-6">
+      ${Object.entries(FONTS).map(([k,f])=>`
+        <button onclick="setUI('font','${k}')" class="w-full flex items-center justify-between gap-3 p-3 rounded-xl border transition"
+          style="border-color:${UI.font===k?'var(--brand-600)':'var(--paper-200)'};background:${UI.font===k?'var(--brand-100)':'var(--surface)'}">
+          <span class="text-right">
+            <span class="block font-semibold text-sm" style="font-family:'${f.display}'">${f.label}</span>
+            <span class="block text-xs text-ink-500">${f.note}</span>
+          </span>
+          <span class="text-lg shrink-0" style="font-family:'${f.display}'">أصول ١٢٣</span>
+        </button>`).join('')}
+    </div>
+
+    <p class="eyebrow mb-2.5">حجم النص</p>
+    <div class="flex gap-2 mb-6">
+      ${Object.entries(SIZES).map(([k,z])=>`
+        <button onclick="setUI('size','${k}')" class="flex-1 py-2.5 rounded-xl border text-sm transition"
+          style="border-color:${UI.size===k?'var(--brand-600)':'var(--paper-200)'};background:${UI.size===k?'var(--brand-100)':'var(--surface)'};font-size:${k==='compact'?'.82rem':k==='large'?'1.05rem':'.93rem'}">
+          ${z.label}</button>`).join('')}
+    </div>
+
+    <button onclick="closeModal()" class="btn-primary w-full">تم</button>`;
+}
+
+
+/* تهريب أي نص قادم من البيانات قبل عرضه — يمنع حقن سكربت عبر الأسماء والأوصاف */
+function esc(v){
+  if(v==null) return '';
+  return String(v).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+/* تهريب للاستخدام داخل سمات onclick */
+const escJs = v => esc(String(v??'')).replace(/\\/g,'\\\\');
+
+
+const DICT = {"لوحة المالك": "Owner Dashboard", "التحصيل": "Collection", "المباني": "Buildings", "المالية": "Finance", "الصيانة": "Maintenance", "العمال والرواتب": "Staff & Payroll", "العقود": "Leases", "الوحدات": "Units", "المستأجرون": "Tenants", "الإعدادات": "Settings", "تسجيل الخروج": "Sign out", "خروج": "Exit", "دخول": "Sign in", "تسجيل الدخول": "Sign in", "القائمة": "Menu", "أصول": "Osool", "حوكمة وتشغيل الأصول العقارية": "Real Estate Asset Governance & Operations", "إدارة وتشغيل وصيانة الأصول العقارية": "Property Management, Operations & Maintenance", "البريد الإلكتروني": "Email", "كلمة السر": "Password", "إلغاء": "Cancel", "إغلاق": "Close", "حفظ": "Save", "تعديل": "Edit", "حذف": "Delete", "إضافة": "Add", "تحليل": "Analyse", "تنفيذ": "Run", "تخطّي": "Skip", "الإجمالي": "Total", "الصافي": "Net", "التاريخ": "Date", "الحالة": "Status", "المبلغ": "Amount", "السبب": "Reason", "الوصف": "Description", "ملاحظات": "Notes", "اختياري": "Optional", "جارٍ التحميل…": "Loading…", "جارٍ الحفظ…": "Saving…", "جارٍ الفحص…": "Checking…", "سنوي": "Yearly", "شهري": "Monthly", "الكل": "All", "اكتب هنا…": "Type here…", "تشخيص": "Diagnose", "— اختر —": "— Select —", "غير مخصص": "Unassigned", "الإيراد المتعاقد": "Contracted Revenue", "المحصّل": "Collected", "المتأخرات": "Overdue", "صافي التشغيل": "Operating Net", "إجمالي المحصّل": "Total Collected", "إجمالي المتأخرات": "Total Overdue", "إجمالي المصروفات": "Total Expenses", "أتعاب الإدارة": "Management Fee", "الإشغال": "Occupancy", "إجمالي التحصيل": "Total Collection", "مستحق قادم": "Upcoming Due", "كل المباني": "All buildings", "تشغيل وصيانة ورواتب": "Operations, maintenance & payroll", "من المباني المُدارة": "From managed buildings", "مستحقة ولم تُسدد": "Due and unpaid", "كامل السنة": "Full year", "محصّل − مصروفات": "Collected − expenses", "مبانٍ مملوكة": "Owned Buildings", "مبانٍ تحت الإدارة": "Managed Buildings", "مملوك": "Owned", "تحت الإدارة": "Managed", "مملوك للشركة": "Company-owned", "تحت الإدارة (ملك الغير)": "Managed (third-party owned)", "المبنى": "Building", "اسم المبنى": "Building name", "نوع الملكية": "Ownership", "اسم المالك": "Owner name", "كشف الحساب": "Statement", "كشف": "Statement", "تسوية المالك": "Owner Settlement", "تسجيل مبنى": "Register Building", "حفظ المبنى": "Save building", "تعديل المبنى": "Edit Building", "تسجيل": "Register", "نسبة أتعاب الإدارة (%)": "Management fee (%)", "بداية عقد الإدارة": "Management contract start", "نهايته": "End", "المستحق للمالك": "Due to Owner", "المسدَّد له": "Paid to owner", "المتبقّي": "Remaining", "المبلغ المحوَّل (ر.س)": "Transferred amount (SAR)", "مرجع التحويل": "Transfer reference", "تسجيل التحويل": "Record transfer", "سجل التحويلات": "Transfer log", "مبنى مملوك": "Owned building", "تفاصيل المصروفات": "Expense details", "الإيراد المحصّل": "Collected revenue", "متأخرات لم تُحصّل": "Uncollected arrears", "وحدة جديدة": "New Unit", "رقم الوحدة": "Unit number", "المساحة (م²)": "Area (m²)", "الإيجار السنوي (ر.س)": "Annual rent (SAR)", "نوع الوحدة": "Unit type", "سكني (معفى من الضريبة)": "Residential (VAT exempt)", "تجاري (خاضع ١٥٪)": "Commercial (15% VAT)", "رقم عداد الكهرباء": "Electricity meter no.", "رقم عداد المياه": "Water meter no.", "إضافة الوحدة": "Add unit", "تعديل بيانات الوحدة": "Edit Unit", "حذف الوحدة": "Delete unit", "تسجيل قراءة عداد": "Record Meter Reading", "نوع العداد": "Meter type", "كهرباء": "Electricity", "مياه": "Water", "القراءة": "Reading", "تاريخ القراءة": "Reading date", "قيمة الفاتورة (ر.س)": "Bill amount (SAR)", "حفظ القراءة": "Save reading", "شاغرة": "Vacant", "مؤجّرة": "Leased", "صيانة": "Maintenance", "تحت الصيانة": "Under maintenance", "تجاري": "Commercial", "نسبة الإشغال": "Occupancy rate", "لا قراءات": "No readings", "لم يُسجّل": "Not recorded", "حفظ التعديلات": "Save changes", "مستأجر جديد": "New Tenant", "الاسم الكامل": "Full name", "رقم الجوال": "Mobile number", "رقم الهوية": "ID number", "انتهاء الهوية / الإقامة": "ID / Iqama expiry", "إضافة المستأجر": "Add tenant", "قائمة سوداء": "Blacklist", "إعادة تفعيل": "Reinstate", "عقد ساري": "Active lease", "عقد سابق": "Past lease", "بلا عقد": "No lease", "نشط": "Active", "غير نشط": "Inactive", "تعديل بيانات المستأجر": "Edit Tenant", "حذف المستأجر": "Delete tenant", "ابحث بالاسم أو الجوال": "Search by name or mobile", "الهوية منتهية": "ID expired", "عقد جديد": "New Lease", "المستأجر": "Tenant", "اختر المستأجر": "Select tenant", "الوحدة الشاغرة": "Vacant unit", "اختر الوحدة": "Select unit", "بداية العقد": "Lease start", "نهاية العقد": "Lease end", "عدد الدفعات في السنة": "Installments per year", "عدد الدفعات": "Installments", "دفعة واحدة": "Single payment", "دفعتان": "Two payments", "٣ دفعات": "3 payments", "٤ دفعات": "4 payments", "١٢ دفعة (شهري)": "12 payments (monthly)", "رقم عقد إيجار": "Ejar contract no.", "التأمين المسترد (ر.س)": "Refundable deposit (SAR)", "غرامة التأخير (% من الدفعة)": "Late fee (% of installment)", "حفظ العقد وتفعيله": "Save & activate lease", "تعديل العقد": "Edit Lease", "حالة العقد": "Lease status", "ساري": "Active", "مجدد": "Renewed", "منتهي": "Terminated", "منتهي الصلاحية": "Expired", "مسودة": "Draft", "إنهاء": "Terminate", "حذف من السجل": "Delete record", "تجديد": "Renew", "تجديد العقد": "Renew Lease", "تنفيذ التجديد": "Confirm renewal", "بداية الفترة الجديدة": "New period start", "عقود تقترب من الانتهاء": "Leases Nearing Expiry", "تسوية الدفعات السابقة": "Settle Past Installments", "اعتبارها كلها مسددة": "Mark all as paid", "المستحقة": "Due", "المتأخرة": "Overdue", "المسددة": "Paid", "تسجيل دفعة": "Record Payment", "المبلغ المستلم (ر.س)": "Amount received (SAR)", "تاريخ الاستلام": "Received date", "طريقة الدفع": "Payment method", "تحويل بنكي": "Bank transfer", "نقدًا": "Cash", "شيك": "Cheque", "شبكة": "Card", "رقم السند / المرجع": "Receipt / reference no.", "حفظ السند": "Save receipt", "الاستحقاق": "Due", "سند قبض": "receipt", "دفعة": "installment", "تسجيل مصروف": "Record Expense", "البند": "Category", "رواتب": "Salaries", "نظافة": "Cleaning", "كهرباء ومياه": "Utilities", "رسوم حكومية": "Government fees", "أخرى": "Other", "حفظ المصروف": "Save expense", "آخر المصروفات": "Recent Expenses", "متوقع": "Expected", "مصروفات": "Expenses", "الشهر": "Month", "الخطة السنوية والأداء الفعلي": "Annual Plan vs Actual", "عام (غير مخصص)": "General (unassigned)", "من الصيانة": "From maintenance", "من الرواتب": "From payroll", "من العدادات": "From meters", "القيد السريع": "Quick Entry", "عمل صيانة جديد": "New Maintenance Job", "التكلفة التقديرية (ر.س)": "Estimated cost (SAR)", "التكلفة التقديرية": "Estimated cost", "المورد / الفني": "Vendor / technician", "حفظ عمل الصيانة": "Save job", "على من تُحمّل التكلفة؟": "Who bears the cost?", "المبنى كامل (مشترك)": "Whole building (shared)", "وحدات محددة": "Specific units", "الوحدات المستفيدة": "Units covered", "مطلوبة": "Requested", "قيد التنفيذ": "In progress", "منجزة": "Completed", "قيد نهائي": "Post final", "إرجاع لقيد التنفيذ": "Reopen", "إضافة مبلغ": "Add amount", "إضافة مبلغ على العمل": "Add Amount to Job", "حركات التكلفة": "Cost movements", "حذف السجل": "Delete record", "تكلفة الصيانة": "Maintenance cost", "أعمال مفتوحة": "Open jobs", "الأعلى تكلفة": "Highest cost", "تعديل عمل الصيانة": "Edit Maintenance Job", "بحاجة متابعة": "Needs follow-up", "لا شيء معلّق": "Nothing pending", "دينمو / مضخة": "Pump / motor", "سخان": "Water heater", "مصعد": "Elevator", "سباكة": "Plumbing", "تكييف": "HVAC", "دهان وترميم": "Painting & repairs", "مشترك": "Shared", "إضافة عامل": "Add Employee", "الوظيفة": "Role", "الراتب الشهري (ر.س)": "Monthly salary (SAR)", "تاريخ المباشرة": "Start date", "إضافة العامل": "Add employee", "إنهاء الخدمة": "End service", "خارج الخدمة": "Inactive", "على رأس العمل": "Active", "الرواتب الشهرية": "Monthly Payroll", "الرواتب السنوية": "Annual Payroll", "سجل صرف الرواتب": "Payroll History", "إلغاء الصرف": "Reverse run", "مصروفة": "Paid", "لم تُصرف": "Not paid", "تسجيل صرف رواتب الشهر": "Run this month's payroll", "حارس": "Guard", "عامل نظافة": "Cleaner", "فني": "Technician", "كهربائي": "Electrician", "سباك": "Plumber", "مشرف": "Supervisor", "التزام تشغيلي متكرر": "Recurring operating commitment", "تعديل بيانات العامل": "Edit Employee", "حسابك": "Your Account", "الصلاحيات": "Permissions", "استيراد جماعي": "Bulk Import", "تصدير ونسخ احتياطي": "Export & Backup", "سجل التدقيق": "Audit Log", "استيراد": "Import", "الاسم": "Name", "مدير النظام": "System Admin", "مشغّل": "Operator", "محاسب": "Accountant", "صاحب الشركة": "Company Owner", "مدير تنفيذي": "Executive", "مالك خارجي": "External Owner", "بلا صلاحية": "No access", "لا توجد صلاحية لهذا الحساب": "This account has no access", "تواصل مع مدير النظام لإسناد دور لحسابك.": "Contact the system admin to assign a role to your account.", "المباني المسموح له بالاطلاع عليها": "Buildings this user may view"};
+
+let LANG = (()=>{ try{ return localStorage.getItem('lang')||'ar'; }catch(e){ return 'ar'; } })();
+
+function setLang(l){
+  LANG=l;
+  try{ localStorage.setItem('lang',l); }catch(e){}
+  location.reload();                       // إعادة بناء نظيفة بالاتجاه والخط الصحيحين
+}
+
+/* محرك الترجمة: يمرّ على النص المعروض ويبدّله دون الحاجة لتعديل كل واجهة */
+const RX = [
+  [/^متأخرة (\d+) يوم$/, (m)=>`${m[1]} days overdue`],
+  [/^سُددت (.+)$/,        (m)=>`Paid ${m[1]}`],
+  [/^الاستحقاق (.+)$/,    (m)=>`Due ${m[1]}`],
+  [/^(\d+) سند قبض(.*)$/,(m)=>`${m[1]} receipts${m[2]}`],
+  [/^(\d+) دفعة$/,       (m)=>`${m[1]} installments`],
+  [/^(\d+) عمل في الفترة$/,(m)=>`${m[1]} jobs this period`],
+  [/^(\d+) عامل على رأس العمل$/,(m)=>`${m[1]} active employees`],
+  [/^سنة (\d+)$/,        (m)=>`Year ${m[1]}`],
+  [/^وحدة (.+)$/,         (m)=>`Unit ${m[1]}`],
+  [/^ينتهي (.+)$/,        (m)=>`Ends ${m[1]}`],
+];
+const MONTH_EN={'يناير':'January','فبراير':'February','مارس':'March','أبريل':'April','مايو':'May','يونيو':'June',
+  'يوليو':'July','أغسطس':'August','سبتمبر':'September','أكتوبر':'October','نوفمبر':'November','ديسمبر':'December'};
+
+function tr(txt){
+  const t=txt.trim(); if(!t) return null;
+  if(DICT[t]) return DICT[t];
+  if(MONTH_EN[t]) return MONTH_EN[t];
+  for(const [rx,fn] of RX){ const m=t.match(rx); if(m) return fn(m); }
+  if(t==='ر.س') return 'SAR';
+  return null;
+}
+
+let observing=null;
+function translateTree(root){
+  if(LANG!=='en'||!root) return;
+  const w=document.createTreeWalker(root,NodeFilter.SHOW_TEXT);
+  const nodes=[]; while(w.nextNode()) nodes.push(w.currentNode);
+  nodes.forEach(n=>{
+    if(n.parentElement && n.parentElement.closest('[data-noi18n]')) return;
+    const v=tr(n.nodeValue); if(v!==null) n.nodeValue=n.nodeValue.replace(n.nodeValue.trim(),v);
+  });
+  root.querySelectorAll?.('[placeholder]').forEach(el=>{ const v=tr(el.placeholder); if(v!==null) el.placeholder=v; });
+  root.querySelectorAll?.('[title]').forEach(el=>{ const v=tr(el.title); if(v!==null) el.title=v; });
+}
+
+function applyLang(){
+  const html=document.documentElement;
+  html.lang=LANG; html.dir = LANG==='ar' ? 'rtl' : 'ltr';
+  document.body.style.fontFamily = LANG==='ar'
+    ? "'IBM Plex Sans Arabic',system-ui,sans-serif"
+    : "'Readex Pro',system-ui,sans-serif";
+  if(LANG!=='en') return;
+  translateTree(document.body);
+  if(!observing){
+    observing=new MutationObserver(muts=>{
+      observing.disconnect();
+      muts.forEach(m=>m.addedNodes.forEach(n=>{ if(n.nodeType===1) translateTree(n); else if(n.nodeType===3){const v=tr(n.nodeValue); if(v!==null) n.nodeValue=v;} }));
+      observing.observe(document.body,{childList:true,subtree:true});
+    });
+    observing.observe(document.body,{childList:true,subtree:true});
+  }
+}
+
+const langToggle = () => `<div class="inline-flex bg-white border border-paper-200 rounded-lg p-0.5" data-noi18n>
+  <button onclick="setLang('ar')" class="px-2.5 py-1 rounded-md text-xs ${LANG==='ar'?'bg-teal-900 text-white font-semibold':'text-ink-500'}">ع</button>
+  <button onclick="setLang('en')" class="px-2.5 py-1 rounded-md text-xs ${LANG==='en'?'bg-teal-900 text-white font-semibold':'text-ink-500'}">EN</button>
+</div>`;
+
 
 /* مُبلِّغ الأخطاء: يعرض أي خلل على الشاشة مباشرة بدل بقائه مخفيًا في الكونسول */
 function showError(msg){
@@ -187,6 +425,7 @@ async function once(key,btn,fn){
 
 /* ───── auth ───── */
 async function init(){
+  applyUI();
   const {data:{session}} = await db.auth.getSession(); user=session?.user||null;
   if(user) await loadMe();
   paint();
@@ -205,9 +444,9 @@ async function loadMe(){
 }
 db.auth.onAuthStateChange(async(_e,s)=>{ user=s?.user||null; if(user) await loadMe(); paint(); });
 function paint(){
-  if(!user) return loginView();
-  if(!(ROLE_TABS[ME.role]||[]).length) return noAccessView();
-  shell();
+  if(!user){ loginView(); applyLang(); return; }
+  if(!(ROLE_TABS[ME.role]||[]).length){ noAccessView(); applyLang(); return; }
+  shell(); applyLang();
 }
 
 async function runDiag(){
@@ -215,7 +454,7 @@ async function runDiag(){
   box.innerHTML='<p class="text-ink-500">جارٍ الفحص…</p>';
   const {data,error}=await db.rpc('whoami');
   if(error){ box.innerHTML=`<p class="text-rose-600">تعذّر الفحص: ${error.message}<br>الأرجح أن دوال الحماية لم تُنشأ بعد.</p>`; return; }
-  const rows=(data.rows||[]).map(r=>`<div class="num" dir="ltr">${r.email} — ${r.role}</div>`).join('')||'<div class="text-rose-600">لا حسابات مسجّلة</div>';
+  const rows=(data.rows||[]).map(r=>`<div class="num" dir="ltr">${esc(r.email)} — ${r.role}</div>`).join('')||'<div class="text-rose-600">لا حسابات مسجّلة</div>';
   box.innerHTML=`
     <div class="border border-paper-200 rounded-lg p-3 bg-paper-50 space-y-1.5">
       <p><b>البريد كما تراه قاعدة البيانات:</b><br><span class="num" dir="ltr">${data.jwt_email||'— لا يصل البريد —'}</span></p>
@@ -233,7 +472,7 @@ function noAccessView(){
           <path d="M12 9v4m0 4h.01M10.3 3.9L1.8 18a2 2 0 001.7 3h17a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z"/></svg>
       </div>
       <h1 class="text-xl font-bold">لا توجد صلاحية لهذا الحساب</h1>
-      <p class="text-ink-500 text-sm mt-2">${user.email}</p>
+      <p class="text-ink-500 text-sm mt-2">${esc(user.email)}</p>
       <p class="text-ink-500 text-sm mt-3">تواصل مع مدير النظام لإسناد دور لحسابك.</p>
       <div id="diag" class="text-right text-xs mt-5"></div>
       <button onclick="runDiag()" class="btn-ghost w-full mt-4">تشخيص</button>
@@ -260,6 +499,8 @@ function loginView(){
         <input id="pw" type="password" class="field" dir="ltr">
         <p id="er" class="text-rose-600 text-sm mt-3 hidden"></p>
         <button onclick="login()" class="btn-primary w-full mt-6">دخول</button>
+        <button onclick="openAppearance()" class="text-xs text-ink-500 w-full mt-5">تخصيص المظهر</button>
+        <div class="flex justify-center mt-5">${langToggle()}</div>
       </div>
     </div>
   </div>`;
@@ -278,13 +519,17 @@ function shell(){
     <aside class="hidden lg:flex flex-col w-64 shrink-0 bg-white/85 backdrop-blur border-l border-paper-100 p-4">
       ${brandBlock()}
       <nav class="space-y-1 mt-7">${TABS.filter(t=>allowed(t.id)).map(navBtn).join('')}</nav>
-      <button onclick="logout()" class="navlink mt-auto text-ink-500 text-sm">تسجيل الخروج</button>
+      <div class="mt-auto pt-4">${langToggle()}</div>
+      <button onclick="openAppearance()" class="navlink text-ink-500 text-sm">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 000 18 4.5 4.5 0 000-9 4.5 4.5 0 010-9z"/></svg>المظهر</button>
+      <button onclick="logout()" class="navlink text-ink-500 text-sm">تسجيل الخروج</button>
     </aside>
     <div class="flex-1 min-w-0">
       <header class="lg:hidden sticky top-0 z-20 bg-white/95 backdrop-blur border-b border-paper-100 px-4 h-14 flex items-center justify-between">
         <button onclick="toggleNav()" aria-label="القائمة"><svg width="24" height="24" viewBox="0 0 24 24" stroke="#39434F" stroke-width="1.8" fill="none"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
         <span class="font-bold display">${BRAND}</span>
-        <button onclick="logout()" class="text-sm text-ink-500">خروج</button>
+        <div class="flex items-center gap-2">${langToggle()}<button onclick="openAppearance()" class="text-ink-500" aria-label="المظهر"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 000 18 4.5 4.5 0 000-9 4.5 4.5 0 010-9z"/></svg></button>
+        <button onclick="logout()" class="text-sm text-ink-500">خروج</button></div>
       </header>
       <div id="drawer" class="hidden lg:hidden fixed inset-0 z-30">
         <div class="absolute inset-0 bg-ink-900/45" onclick="toggleNav()"></div>
@@ -339,7 +584,7 @@ const load = {
   readings:async ()=>{ readings=(await db.from('meter_readings').select('*').order('reading_date',{ascending:false})).data||[]; },
 };
 const sumPaid = a => a.reduce((s,p)=>s+Number(p.paid_amount??p.amount),0);
-const sumAmt  = a => a.reduce((s,p)=>s+Number(p.amount),0);
+const sumAmt  = a => a.reduce((s,p)=>s+Number(p.amount)+Number(p.vat_amount||0)-Number(p.paid_amount||0),0);
 
 /* ───── لوحة المالك: فصل الذمم بين ما نملكه وما نديره للغير ───── */
 async function dashView(){
@@ -376,7 +621,7 @@ async function dashView(){
           <p class="text-3xl font-bold display mt-1"><span class="num">${units.length?Math.round(units.filter(u=>u.status==='occupied').length/units.length*100):0}</span>%</p></div>
         <p class="text-sm text-ink-500"><span class="num">${units.filter(u=>u.status==='occupied').length}</span> مؤجّرة من <span class="num">${units.length}</span> · <span class="num">${leases.filter(l=>l.status==='active').length}</span> عقد ساري</p>
       </div>
-      <div class="flex gap-1 flex-wrap">${units.map(u=>`<span title="${u.building_name} ${u.unit_number}" class="h-5 flex-1 min-w-[10px] rounded ${u.status==='occupied'?'bg-teal-700':u.status==='maintenance'?'bg-amber-600':'bg-paper-200'}"></span>`).join('')||'<span class="text-sm text-ink-300">لا وحدات</span>'}</div>
+      <div class="lattice">${units.map(u=>`<span title="${esc(u.building_name)} ${esc(u.unit_number)}" class="h-5 flex-1 min-w-[10px] rounded ${u.status==='occupied'?'bg-teal-700':u.status==='maintenance'?'bg-amber-600':'bg-paper-200'}"></span>`).join('')||'<span class="text-sm text-ink-300">لا وحدات</span>'}</div>
     </div>
   </div>`;
 }
@@ -409,7 +654,7 @@ function bookBlock(title, rows, note){
       <table class="w-full min-w-[620px]">
         <thead><tr><th>المبنى</th><th>الإشغال</th><th>محصّل</th><th>متأخر</th><th>مصروفات</th>${managed?'<th>أتعاب</th><th>المستحق للمالك</th>':'<th>الصافي</th>'}<th></th></tr></thead>
         <tbody>${rows.map(r=>`<tr>
-          <td class="font-semibold">${r.name}${r.owner_name?`<span class="block text-xs font-normal text-ink-500">${r.owner_name}</span>`:''}</td>
+          <td class="font-semibold">${esc(r.name)}${r.owner_name?`<span class="block text-xs font-normal text-ink-500">${esc(r.owner_name)}</span>`:''}</td>
           <td><span class="num">${r.occupied}</span>/<span class="num">${r.unitsTotal}</span></td>
           <td class="text-teal-700"><span class="num">${money(r.collected)}</span></td>
           <td class="${r.overdue?'text-rose-600':''}"><span class="num">${money(r.overdue)}</span></td>
@@ -418,7 +663,7 @@ function bookBlock(title, rows, note){
             ? `<td><span class="num">${money(r.fee)}</span> <span class="text-xs text-ink-500">${r.pct}%</span></td>
                <td class="font-bold ${r.dueOwner<0?'text-rose-600':''}"><span class="num">${money(r.dueOwner)}</span></td>`
             : `<td class="font-bold ${r.net<0?'text-rose-600':''}"><span class="num">${money(r.net)}</span></td>`}
-          <td><button onclick="openStatement('${r.name.replace(/'/g,"\\'")}')" class="btn-ghost">كشف</button></td>
+          <td><button onclick="openStatement('${escJs(r.name)}')" class="btn-ghost">كشف</button></td>
         </tr>`).join('')}
         <tr class="bg-paper-50">
           <td class="font-bold">الإجمالي</td><td></td>
@@ -443,8 +688,8 @@ function openStatement(name){
   const w=document.createElement('div'); w.id='modal'; w.className='fixed inset-0 z-40 grid place-items-center p-4 overflow-y-auto';
   w.innerHTML=`<div class="absolute inset-0 bg-ink-900/45" onclick="closeModal()"></div>
   <div class="card relative w-full max-w-lg p-6 fade my-8">
-    <h3 class="font-bold text-xl">كشف حساب — ${name}</h3>
-    <p class="text-ink-500 text-sm mt-1 mb-5">${periodLabel()} · ${r.ownership==='managed'?`تحت الإدارة${r.owner_name?` لصالح ${r.owner_name}`:''}`:'مبنى مملوك'}</p>
+    <h3 class="font-bold text-xl">كشف حساب — ${esc(name)}</h3>
+    <p class="text-ink-500 text-sm mt-1 mb-5">${periodLabel()} · ${r.ownership==='managed'?`تحت الإدارة${r.owner_name?` لصالح ${esc(r.owner_name)}`:''}`:'مبنى مملوك'}</p>
 
     <table class="w-full">
       <tbody>
@@ -504,8 +749,8 @@ function expiryCard(){
         const tone=l.daysLeft<0?'bg-rose-100 text-rose-600':l.daysLeft<=30?'bg-rose-100 text-rose-600':l.daysLeft<=60?'bg-amber-100 text-amber-600':'bg-paper-100 text-ink-500';
         return `<div class="flex items-center justify-between gap-3 border border-paper-100 rounded-lg p-3">
           <div class="min-w-0">
-            <p class="font-semibold truncate">${l.tenants?.full_name||'—'}</p>
-            <p class="text-xs text-ink-500 truncate">${l.units?.building_name||''} · وحدة ${l.units?.unit_number||''} · ينتهي <span class="num">${l.end_date}</span></p>
+            <p class="font-semibold truncate">${esc(l.tenants?.full_name||'—')}</p>
+            <p class="text-xs text-ink-500 truncate">${esc(l.units?.building_name||'')} · وحدة ${esc(l.units?.unit_number||'')} · ينتهي <span class="num">${l.end_date}</span></p>
           </div>
           <div class="flex items-center gap-2 shrink-0">
             <span class="pill ${tone}">${l.daysLeft<0?'منتهٍ':'<span class="num">'+l.daysLeft+'</span> يوم'}</span>
@@ -524,7 +769,7 @@ function openRenew(id){
   w.innerHTML=`<div class="absolute inset-0 bg-ink-900/45" onclick="closeModal()"></div>
   <div class="card relative w-full max-w-md p-6 fade my-8">
     <h3 class="font-bold text-xl">تجديد العقد</h3>
-    <p class="text-ink-500 text-sm mt-1 mb-5">${l.tenants?.full_name||''} · ${l.units?.building_name||''} وحدة ${l.units?.unit_number||''}</p>
+    <p class="text-ink-500 text-sm mt-1 mb-5">${esc(l.tenants?.full_name||'')} · ${esc(l.units?.building_name||'')} وحدة ${esc(l.units?.unit_number||'')}</p>
     <div class="grid grid-cols-2 gap-3">
       <div><label class="eyebrow block mb-2">بداية الفترة الجديدة</label><input id="rn_s" type="date" class="field" value="${ns||''}"></div>
       <div><label class="eyebrow block mb-2">نهايتها</label><input id="rn_e" type="date" class="field" value="${ne||''}"></div>
@@ -577,7 +822,7 @@ function openPayout(name){
   const w=document.createElement('div'); w.id='modal'; w.className='fixed inset-0 z-40 grid place-items-center p-4 overflow-y-auto';
   w.innerHTML=`<div class="absolute inset-0 bg-ink-900/45" onclick="closeModal()"></div>
   <div class="card relative w-full max-w-md p-6 fade my-8">
-    <h3 class="font-bold text-xl">تسوية المالك — ${name}</h3>
+    <h3 class="font-bold text-xl">تسوية المالك — ${esc(name)}</h3>
     <p class="text-ink-500 text-sm mt-1 mb-5">${periodLabel()}</p>
     <table class="w-full mb-5"><tbody>
       <tr><td>المستحق للمالك</td><td class="text-left font-bold"><span class="num">${money(r.dueOwner)}</span></td></tr>
@@ -591,7 +836,7 @@ function openPayout(name){
         <div class="col-span-2"><label class="eyebrow block mb-2">مرجع التحويل</label><input id="po_r" class="field" dir="ltr" placeholder="رقم العملية البنكية"></div>
       </div>
       <p id="po_err" class="text-rose-600 text-sm mt-3 hidden"></p>
-      <button onclick="savePayout('${name.replace(/'/g,"\\'")}')" class="btn-primary w-full mt-4">تسجيل التحويل</button>
+      <button onclick="savePayout('${escJs(name)}')" class="btn-primary w-full mt-4">تسجيل التحويل</button>
     </div>
     ${(()=>{const list=payouts.filter(p=>p.building_name===name);
       return list.length?`<p class="eyebrow mt-6 mb-2">سجل التحويلات</p>
@@ -671,18 +916,18 @@ function renderBuildings(){
     return `<div class="card p-5">
       <div class="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p class="font-bold text-lg display">${b.name}
+          <p class="font-bold text-lg display">${esc(b.name)}
             <span class="pill mr-1 ${managed?'bg-amber-100 text-amber-600':'bg-teal-100 text-teal-700'}">${managed?'تحت الإدارة':'مملوك'}</span></p>
           <p class="text-sm text-ink-500 mt-0.5">
-            ${managed&&b.owner_name?`المالك: ${b.owner_name} · `:''}
+            ${managed&&b.owner_name?`المالك: ${esc(b.owner_name)} · `:''}
             <span class="num">${r.occupied}</span>/<span class="num">${r.unitsTotal}</span> وحدة مؤجّرة${managed?` · أتعاب <span class="num">${r.pct}</span>%`:''}
             ${b._ghost?' · <span class="text-amber-600">غير مسجّل — احفظه لتحديد ملكيته</span>':''}
           </p>
         </div>
         <div class="flex gap-1.5">
-          <button onclick="openStatement('${b.name.replace(/'/g,"\\'")}')" class="btn-ghost">كشف الحساب</button>
-          ${b.ownership==='managed'?`<button onclick="openPayout('${b.name.replace(/'/g,"\\'")}')" class="btn-ghost text-teal-700 border-teal-100">تسوية المالك</button>`:''}
-          ${b._ghost?`<button onclick="quickRegister('${b.name.replace(/'/g,"\\'")}')" class="btn-ghost text-teal-700 border-teal-100">تسجيل</button>`
+          <button onclick="openStatement('${escJs(b.name)}')" class="btn-ghost">كشف الحساب</button>
+          ${b.ownership==='managed'?`<button onclick="openPayout('${escJs(b.name)}')" class="btn-ghost text-teal-700 border-teal-100">تسوية المالك</button>`:''}
+          ${b._ghost?`<button onclick="quickRegister('${escJs(b.name)}')" class="btn-ghost text-teal-700 border-teal-100">تسجيل</button>`
                     :`<button onclick="openBuildingEdit('${b.id}')" class="btn-ghost">تعديل</button>`}
         </div>
       </div>
@@ -723,14 +968,14 @@ function openBuildingEdit(id){
   w.innerHTML=`<div class="absolute inset-0 bg-ink-900/45" onclick="closeModal()"></div>
   <div class="card relative w-full max-w-md p-6 fade my-8">
     <h3 class="font-bold text-xl mb-5">تعديل المبنى</h3>
-    <label class="eyebrow block mb-2">اسم المبنى</label><input id="be_n" class="field mb-4" value="${b.name||''}">
+    <label class="eyebrow block mb-2">اسم المبنى</label><input id="be_n" class="field mb-4" value="${esc(b.name||'')}">
     <label class="eyebrow block mb-2">نوع الملكية</label>
     <select id="be_o" class="field mb-4">
       <option value="owned" ${b.ownership==='owned'?'selected':''}>مملوك للشركة</option>
       <option value="managed" ${b.ownership==='managed'?'selected':''}>تحت الإدارة (ملك الغير)</option>
     </select>
     <div class="grid grid-cols-2 gap-3">
-      <div><label class="eyebrow block mb-2">اسم المالك</label><input id="be_own" class="field" value="${b.owner_name||''}"></div>
+      <div><label class="eyebrow block mb-2">اسم المالك</label><input id="be_own" class="field" value="${esc(b.owner_name||'')}"></div>
       <div><label class="eyebrow block mb-2">أتعاب الإدارة (%)</label><input id="be_f" type="number" class="field" value="${b.management_fee_pct||0}"></div>
     </div>
     <p class="text-xs text-ink-500 mt-3">تغيير الاسم لا ينقل الوحدات تلقائيًا — عدّل أسماء المباني في الوحدات إن غيّرته.</p>
@@ -831,9 +1076,9 @@ function renderExpenses(){
   box.innerHTML=expenses.slice(0,25).map(e=>`
     <div class="card p-4 flex items-center justify-between gap-3">
       <div class="min-w-0">
-        <p class="font-semibold">${EXP_LABEL[e.category]||e.category}${e.building_name?` · ${e.building_name}`:''}
+        <p class="font-semibold">${EXP_LABEL[e.category]||e.category}${e.building_name?` · ${esc(e.building_name)}`:''}
           ${e.source&&e.source!=='manual'?`<span class="pill bg-paper-100 text-ink-500 mr-1">${e.source==='maintenance'?'من الصيانة':e.source==='meter'?'من العدادات':'من الرواتب'}</span>`:''}</p>
-        <p class="text-sm text-ink-500 truncate">${e.notes||'—'} · <span class="num">${e.expense_date}</span></p>
+        <p class="text-sm text-ink-500 truncate">${esc(e.notes||'—')} · <span class="num">${e.expense_date}</span></p>
       </div>
       <div class="text-left shrink-0">
         <p class="font-bold text-amber-600"><span class="num">${money(e.amount)}</span> <span class="text-xs text-ink-500">ر.س</span></p>
@@ -904,9 +1149,10 @@ function renderPayments(){
     const late=p.status==='pending'&&p.due_date<t, days=Math.round((new Date(t)-new Date(p.due_date))/864e5), l=p.leases||{};
     return `<div class="card p-4 flex items-center justify-between gap-3">
       <div class="min-w-0">
-        <p class="font-semibold truncate">${l.tenants?.full_name||'—'}</p>
-        <p class="text-sm text-ink-500 truncate">${l.units?.building_name||''} · وحدة ${l.units?.unit_number||''}</p>
+        <p class="font-semibold truncate">${esc(l.tenants?.full_name||'—')}</p>
+        <p class="text-sm text-ink-500 truncate">${esc(l.units?.building_name||'')} · وحدة ${esc(l.units?.unit_number||'')}</p>
         <p class="text-xs mt-1 ${late?'text-rose-600 font-semibold':'text-ink-500'}">الاستحقاق <span class="num">${p.due_date}</span>${late?` · متأخرة <span class="num">${days}</span> يوم`:''}</p>
+        ${Number(p.paid_amount)&&p.status==='pending'?`<p class="text-xs text-amber-600 font-semibold mt-0.5">سُدّد <span class="num">${money(p.paid_amount)}</span> · متبقٍّ <span class="num">${money(Number(p.amount)+Number(p.vat_amount||0)-Number(p.paid_amount))}</span></p>`:''}
       </div>
       <div class="text-left shrink-0">
         <p class="font-bold"><span class="num">${money(Number(p.amount)+Number(p.vat_amount||0))}</span> <span class="text-xs text-ink-500">ر.س</span></p>
@@ -922,7 +1168,7 @@ function openReceipt(id){
   w.innerHTML=`<div class="absolute inset-0 bg-ink-900/45" onclick="closeModal()"></div>
   <div class="card relative w-full max-w-sm p-6 fade">
     <h3 class="font-bold text-xl">تسجيل دفعة</h3>
-    <p class="text-ink-500 text-sm mt-1 mb-5">${p.leases?.tenants?.full_name||''} · استحقاق <span class="num">${p.due_date}</span></p>
+    <p class="text-ink-500 text-sm mt-1 mb-5">${esc(p.leases?.tenants?.full_name||'')} · استحقاق <span class="num">${p.due_date}</span></p>
     <label class="eyebrow block mb-2">المبلغ المستلم (ر.س)</label><input id="r_amt" type="number" class="field mb-4" value="${p.amount}">
     <label class="eyebrow block mb-2">تاريخ الاستلام</label><input id="r_date" type="date" class="field mb-4" value="${today()}">
     <label class="eyebrow block mb-2">طريقة الدفع</label>
@@ -937,8 +1183,17 @@ const closeModal=()=>document.getElementById('modal')?.remove();
 async function saveReceipt(id){
   const amt=Number(r_amt.value), date=r_date.value, err=document.getElementById('r_err');
   if(!amt||amt<=0||!date){ err.textContent='أدخل مبلغًا صحيحًا وتاريخ الاستلام.'; err.classList.remove('hidden'); return; }
-  const {error}=await db.from('payments').update({status:'paid',paid_amount:amt,paid_at:new Date(date+'T12:00:00').toISOString(),payment_method:r_method.value,receipt_number:r_ref.value.trim()||null}).eq('id',id);
-  if(error){ err.textContent='تعذّر الحفظ. حاول مرة أخرى.'; err.classList.remove('hidden'); return; }
+  const p=payments.find(x=>x.id===id), full=Number(p.amount)+Number(p.vat_amount||0);
+  const prior=Number(p.paid_amount||0), total=prior+amt;
+  if(total>full+1 && !confirm(`المبلغ يتجاوز المستحق (${money(full)} ر.س). المتابعة؟`)) return;
+  const partial = total < full-1;                    // سداد جزئي: يبقى مفتوحًا بالفرق
+  const {error}=await db.from('payments').update({
+    status: partial?'pending':'paid', paid_amount: total,
+    paid_at:new Date(date+'T12:00:00').toISOString(),
+    payment_method:r_method.value, receipt_number:r_ref.value.trim()||null
+  }).eq('id',id);
+  if(error){ err.textContent='تعذّر الحفظ: '+error.message; err.classList.remove('hidden'); return; }
+  await logAction('receipt','payment',id,money(amt)+' ر.س'+(partial?' (جزئي)':''));
   closeModal(); collectionView();
 }
 
@@ -1002,7 +1257,7 @@ function runQuick(){
         <div><label class="eyebrow block mb-1.5">المبنى</label>
           <select id="q_b" class="field" onchange="quickUnits()">
             <option value="">— اختر —</option>
-            ${buildings.map(b=>`<option ${b.name===QP.building?'selected':''}>${b.name}</option>`).join('')}
+            ${buildings.map(b=>`<option ${b.name===QP.building?'selected':''}>${esc(b.name)}</option>`).join('')}
           </select></div>
         <div><label class="eyebrow block mb-1.5">البند</label>
           <select id="q_c" class="field">${Object.entries(MAINT_CATS).map(([k,v])=>`<option value="${k}" ${k===QP.category?'selected':''}>${v}</option>`).join('')}</select></div>
@@ -1026,7 +1281,7 @@ function quickUnits(){
   const list=units.filter(u=>u.building_name===b);
   document.getElementById('q_units').innerHTML = list.length
     ? list.map(u=>`<label class="flex items-center gap-1.5 border border-paper-200 rounded-lg px-2 py-1.5 text-sm bg-white">
-        <input type="checkbox" class="q_u" value="${u.id}" ${QP.unitIds.includes(u.id)?'checked':''}> ${u.unit_number}</label>`).join('')
+        <input type="checkbox" class="q_u" value="${u.id}" ${QP.unitIds.includes(u.id)?'checked':''}> ${esc(u.unit_number)}</label>`).join('')
     : `<p class="text-sm text-ink-300 col-span-5">لا وحدات مسجّلة في هذا المبنى</p>`;
 }
 
@@ -1129,7 +1384,7 @@ function fillMaintUnits(){
   box.innerHTML = !b ? `<p class="text-sm text-ink-300 col-span-3">اختر المبنى أولاً</p>`
     : list.length ? list.map(u=>`
       <label class="flex items-center gap-2 border border-paper-200 rounded-lg px-3 py-2 text-sm">
-        <input type="checkbox" class="mt_u" value="${u.id}" onchange="splitPreview()"> وحدة ${u.unit_number}
+        <input type="checkbox" class="mt_u" value="${u.id}" onchange="splitPreview()"> وحدة ${esc(u.unit_number)}
       </label>`).join('')
     : `<p class="text-sm text-ink-300 col-span-3">لا وحدات في هذا المبنى</p>`;
   splitPreview();
@@ -1193,10 +1448,10 @@ function renderMaint(){
     return `<div class="card p-4">
       <div class="flex items-start justify-between gap-3">
         <div class="min-w-0">
-          <p class="font-semibold">${MAINT_CATS[x.category]||x.category} · ${x.building_name}
+          <p class="font-semibold">${MAINT_CATS[x.category]||x.category} · ${esc(x.building_name)}
             <span class="pill mr-1 ${MAINT_ST_C[x.status||'done']}">${MAINT_ST[x.status||'done']}</span></p>
-          ${x.description?`<p class="text-sm text-ink-500">${x.description}</p>`:''}
-          <p class="text-xs text-ink-500 mt-1"><span class="num">${x.service_date}</span>${x.vendor?` · ${x.vendor}`:''}</p>
+          ${x.description?`<p class="text-sm text-ink-500">${esc(x.description)}</p>`:''}
+          <p class="text-xs text-ink-500 mt-1"><span class="num">${x.service_date}</span>${x.vendor?` · ${esc(x.vendor)}`:''}</p>
         </div>
         <div class="shrink-0 text-left">
           <p class="font-bold text-amber-600"><span class="num">${money(x.cost)}</span> <span class="text-xs text-ink-500">ر.س</span></p>
@@ -1249,7 +1504,7 @@ function openAdj(id){
   w.innerHTML=`<div class="absolute inset-0 bg-ink-900/45" onclick="closeModal()"></div>
   <div class="card relative w-full max-w-sm p-6 fade">
     <h3 class="font-bold text-xl">إضافة مبلغ على العمل</h3>
-    <p class="text-ink-500 text-sm mt-1 mb-5">${MAINT_CATS[x.category]||x.category} · ${x.building_name} — الحالي <span class="num">${money(x.cost)}</span> ر.س</p>
+    <p class="text-ink-500 text-sm mt-1 mb-5">${MAINT_CATS[x.category]||x.category} · ${esc(x.building_name)} — الحالي <span class="num">${money(x.cost)}</span> ر.س</p>
     <label class="eyebrow block mb-2">المبلغ (ر.س)</label>
     <input id="aj_a" type="number" class="field mb-1.5" placeholder="مثال: 500">
     <p class="text-xs text-ink-500 mb-4">اكتب رقمًا موجبًا للزيادة، وسالبًا للنقص (مثل ‎-200).</p>
@@ -1304,7 +1559,7 @@ function openMaintEdit(id){
         <select id="me_st" class="field">${Object.entries(MAINT_ST).map(([k,v])=>`<option value="${k}" ${(x.status||'done')===k?'selected':''}>${v}</option>`).join('')}</select></div>
       <div><label class="eyebrow block mb-2">التكلفة التقديرية</label><input id="me_est" type="number" class="field" value="${x.estimated_cost??x.cost??''}"></div>
       <div><label class="eyebrow block mb-2">التاريخ</label><input id="me_d" type="date" class="field" value="${x.service_date||''}"></div>
-      <div class="col-span-2"><label class="eyebrow block mb-2">المورد / الفني</label><input id="me_v" class="field" value="${x.vendor||''}"></div>
+      <div class="col-span-2"><label class="eyebrow block mb-2">المورد / الفني</label><input id="me_v" class="field" value="${esc(x.vendor||'')}"></div>
       <div class="col-span-2"><label class="eyebrow block mb-2">الوصف</label><input id="me_desc" class="field" value="${(x.description||'').replace(/"/g,'&quot;')}"></div>
     </div>
     <p class="text-sm text-ink-500 mt-3">الحركات المسجّلة: <span class="num">${money(adjSum)}</span> ر.س — الإجمالي يُحتسب تلقائيًا بعد الحفظ.</p>
@@ -1364,6 +1619,7 @@ async function postMaintExpense(x){
 async function deleteMaint(id){
   if(!confirm('حذف عمل الصيانة وقيوده في المصروفات؟')) return;
   await db.from('expenses').delete().eq('ref_id',id).eq('source','maintenance');
+  await logAction('delete','maintenance',id,'حذف عمل صيانة');
   const {error}=await db.from('maintenance').delete().eq('id',id);
   if(error) return alert('تعذّر الحذف. حاول مرة أخرى.');
   maintView();
@@ -1453,8 +1709,8 @@ function renderStaff(){
   box.innerHTML=staff.map(s=>`
     <div class="card p-4 flex items-center justify-between gap-3">
       <div class="min-w-0">
-        <p class="font-semibold truncate">${s.full_name}</p>
-        <p class="text-sm text-ink-500">${ROLES[s.role]||s.role||'—'}${s.building_name?` · ${s.building_name}`:''}${s.phone?` · <span class="num">${s.phone}</span>`:''}</p>
+        <p class="font-semibold truncate">${esc(s.full_name)}</p>
+        <p class="text-sm text-ink-500">${ROLES[s.role]||s.role||'—'}${s.building_name?` · ${esc(s.building_name)}`:''}${s.phone?` · <span class="num">${esc(s.phone)}</span>`:''}</p>
       </div>
       <div class="flex flex-col items-end gap-1.5 shrink-0">
         <p class="font-bold"><span class="num">${money(s.monthly_salary)}</span> <span class="text-xs text-ink-500">ر.س/شهر</span></p>
@@ -1492,14 +1748,14 @@ function openStaffEdit(id){
   w.innerHTML=`<div class="absolute inset-0 bg-ink-900/45" onclick="closeModal()"></div>
   <div class="card relative w-full max-w-md p-6 fade my-8">
     <h3 class="font-bold text-xl mb-5">تعديل بيانات العامل</h3>
-    <label class="eyebrow block mb-2">الاسم</label><input id="se_n" class="field mb-4" value="${s.full_name||''}">
+    <label class="eyebrow block mb-2">الاسم</label><input id="se_n" class="field mb-4" value="${esc(s.full_name||'')}">
     <div class="grid grid-cols-2 gap-3">
       <div><label class="eyebrow block mb-2">الوظيفة</label>
         <select id="se_r" class="field">${Object.entries(ROLES).map(([k,v])=>`<option value="${k}" ${s.role===k?'selected':''}>${v}</option>`).join('')}</select></div>
       <div><label class="eyebrow block mb-2">الراتب الشهري (ر.س)</label><input id="se_s" type="number" class="field" value="${s.monthly_salary??''}"></div>
       <div><label class="eyebrow block mb-2">المبنى</label>
         <select id="se_b" class="field"><option value="">غير مخصص</option>${bl.map(b=>`<option ${s.building_name===b?'selected':''}>${b}</option>`).join('')}</select></div>
-      <div><label class="eyebrow block mb-2">رقم الجوال</label><input id="se_p" class="field" dir="ltr" value="${s.phone||''}"></div>
+      <div><label class="eyebrow block mb-2">رقم الجوال</label><input id="se_p" class="field" dir="ltr" value="${esc(s.phone||'')}"></div>
       <div><label class="eyebrow block mb-2">تاريخ المباشرة</label><input id="se_h" type="date" class="field" value="${s.hire_date||''}"></div>
       <div><label class="eyebrow block mb-2">الحالة</label>
         <select id="se_st" class="field">
@@ -1533,6 +1789,7 @@ async function deleteStaff(id){
     ? `حذف هذا العامل و${paid.length} قيد راتب بإجمالي ${money(total)} ر.س من المصروفات؟`
     : 'حذف هذا العامل نهائيًا؟')) return;
   if(paid.length) await db.from('expenses').delete().eq('source','salary').eq('ref_id',id);
+  await logAction('delete','employee',id,'حذف عامل');
   const {error}=await db.from('employees').delete().eq('id',id);
   if(error) return alert('تعذّر الحذف: '+error.message);
   staffView();
@@ -1543,7 +1800,7 @@ async function runPayroll(){
   const active=staff.filter(s=>s.status==='active');
   if(!active.length) return alert('لا عمال على رأس العمل.');
   const rows=active.map(s=>({ building_name:s.building_name, category:'salaries', amount:s.monthly_salary,
-    expense_date:today(), source:'salary', period, ref_id:s.id, notes:`راتب ${s.full_name} — ${MONTHS[new Date().getMonth()]}` }));
+    expense_date:today(), source:'salary', period, ref_id:s.id, notes:`راتب ${esc(s.full_name)} — ${MONTHS[new Date().getMonth()]}` }));
   const {error}=await db.from('expenses').insert(rows);
   if(error) return alert('تعذّر التسجيل. حاول مرة أخرى.');
   staffView();
@@ -1561,9 +1818,9 @@ async function leasesView(){
       <summary class="font-semibold cursor-pointer">عقد جديد</summary>
       <div class="grid sm:grid-cols-2 gap-3 mt-4">
         <div class="sm:col-span-2"><label class="eyebrow block mb-2">المستأجر</label>
-          <select id="l_tenant" class="field"><option value="">اختر المستأجر</option>${tenants.filter(t=>t.status==='active').map(t=>`<option value="${t.id}">${t.full_name} — ${t.phone}</option>`).join('')}</select></div>
+          <select id="l_tenant" class="field"><option value="">اختر المستأجر</option>${tenants.filter(t=>t.status==='active').map(t=>`<option value="${t.id}">${esc(t.full_name)} — ${esc(t.phone)}</option>`).join('')}</select></div>
         <div class="sm:col-span-2"><label class="eyebrow block mb-2">الوحدة الشاغرة</label>
-          <select id="l_unit" class="field"><option value="">اختر الوحدة</option>${vac.map(u=>`<option value="${u.id}" data-rent="${u.base_rent}">${u.building_name} — وحدة ${u.unit_number} (${money(u.base_rent)} ر.س سنويًا)</option>`).join('')}</select>
+          <select id="l_unit" class="field"><option value="">اختر الوحدة</option>${vac.map(u=>`<option value="${u.id}" data-rent="${u.base_rent}">${esc(u.building_name)} — وحدة ${esc(u.unit_number)} (${money(u.base_rent)} ر.س سنويًا)</option>`).join('')}</select>
           ${vac.length?'':'<p class="text-sm text-amber-600 mt-2">لا توجد وحدات شاغرة حاليًا.</p>'}</div>
         <div><label class="eyebrow block mb-2">بداية العقد</label><input id="l_start" type="date" class="field" value="${today()}"></div>
         <div><label class="eyebrow block mb-2">نهاية العقد</label><input id="l_end" type="date" class="field"></div>
@@ -1599,8 +1856,8 @@ function renderLeases(){
   const C={active:'bg-teal-100 text-teal-700',draft:'bg-paper-100 text-ink-500',terminated:'bg-rose-100 text-rose-600',expired:'bg-amber-100 text-amber-600',renewed:'bg-teal-100 text-teal-700'};
   box.innerHTML=leases.map(l=>`<div class="card p-4 flex items-center justify-between gap-3">
     <div class="min-w-0">
-      <p class="font-semibold truncate">${l.tenants?.full_name||'—'}</p>
-      <p class="text-sm text-ink-500 truncate">${l.units?.building_name||''} · وحدة ${l.units?.unit_number||''} · <span class="num">${money(l.annual_rent||l.monthly_rent*12)}</span> ر.س/سنة${l.installments?` · ${l.installments===1?'دفعة واحدة':l.installments+' دفعات'}`:''}</p>
+      <p class="font-semibold truncate">${esc(l.tenants?.full_name||'—')}</p>
+      <p class="text-sm text-ink-500 truncate">${esc(l.units?.building_name||'')} · وحدة ${esc(l.units?.unit_number||'')} · <span class="num">${money(l.annual_rent||l.monthly_rent*12)}</span> ر.س/سنة${l.installments?` · ${l.installments===1?'دفعة واحدة':l.installments+' دفعات'}`:''}</p>
       <p class="text-xs text-ink-300 mt-1"><span class="num">${l.start_date}</span> ← <span class="num">${l.end_date}</span></p>
     </div>
     <div class="flex flex-col items-end gap-1.5 shrink-0">
@@ -1654,7 +1911,7 @@ async function addLease(){
     await db.from('units').update({status:'occupied'}).eq('id',unit_id);
     const rows=buildSchedule(data.id,start_date,end_date,annual,count,vat_pct);
     await db.from('payments').insert(rows);
-    await logAction('create','lease',data.id,`${unit?.building_name} وحدة ${unit?.unit_number}`);
+    await logAction('create','lease',data.id,`${esc(unit?.building_name)} وحدة ${esc(unit?.unit_number)}`);
 
     // عقد بتاريخ قديم: اعرض تسوية الدفعات المستحقة قبل اليوم دفعة واحدة
     const past=rows.filter(r=>r.due_date<today()).length;
@@ -1708,6 +1965,7 @@ function buildSchedule(lease_id,start,end,annual,count,vat_pct=0){
   while(d<=last && guardCount++<600){                 // سقف أمان يمنع أي دوران لا نهائي
     const v=ymd(d); if(!v) break;
     rows.push({lease_id,due_date:v,amount,status:'pending',vat_amount:Math.round(amount*Number(vat_pct||0)/100)});
+    if(false) break;
     d.setMonth(d.getMonth()+step);
   }
   return rows;
@@ -1719,7 +1977,7 @@ function openLeaseEdit(id){
   w.innerHTML=`<div class="absolute inset-0 bg-ink-900/45" onclick="closeModal()"></div>
   <div class="card relative w-full max-w-md p-6 fade my-8">
     <h3 class="font-bold text-xl">تعديل العقد</h3>
-    <p class="text-ink-500 text-sm mt-1 mb-5">${l.tenants?.full_name||'—'} · ${l.units?.building_name||''} وحدة ${l.units?.unit_number||''}</p>
+    <p class="text-ink-500 text-sm mt-1 mb-5">${esc(l.tenants?.full_name||'—')} · ${esc(l.units?.building_name||'')} وحدة ${esc(l.units?.unit_number||'')}</p>
     <div class="grid grid-cols-2 gap-3">
       <div><label class="eyebrow block mb-2">بداية العقد</label><input id="le_s" type="date" class="field" value="${l.start_date||''}"></div>
       <div><label class="eyebrow block mb-2">نهاية العقد</label><input id="le_e" type="date" class="field" value="${l.end_date||''}"></div>
@@ -1785,6 +2043,7 @@ async function endLease(id,unitId){
 
 async function deleteLease(id){
   if(!confirm('حذف هذا العقد وكل دفعاته نهائيًا من السجل؟')) return;
+  await logAction('delete','lease',id,'حذف عقد');
   const {error}=await db.from('leases').delete().eq('id',id);
   if(error) return alert('تعذّر الحذف. حاول مرة أخرى.');
   leasesView();
@@ -1803,7 +2062,7 @@ async function unitsView(){
         <div><p class="eyebrow">نسبة الإشغال</p><p class="text-3xl font-bold display mt-1"><span class="num">${rate}</span>%</p></div>
         <p class="text-sm text-ink-500"><span class="num">${occ}</span> مؤجّرة من <span class="num">${units.length}</span></p>
       </div>
-      <div class="flex gap-1 flex-wrap">${units.map(u=>`<span title="${u.building_name} ${u.unit_number}" class="h-6 flex-1 min-w-[14px] rounded ${u.status==='occupied'?'bg-teal-700':'bg-paper-200'}"></span>`).join('')}</div>
+      <div class="lattice">${units.map(u=>`<span title="${esc(u.building_name)} ${esc(u.unit_number)}" class="h-6 flex-1 min-w-[14px] rounded ${u.status==='occupied'?'bg-teal-700':'bg-paper-200'}"></span>`).join('')}</div>
     </div>`:''}
     <details class="card p-5 mb-6">
       <summary class="font-semibold cursor-pointer">وحدة جديدة</summary>
@@ -1838,7 +2097,7 @@ function renderUnits(){
     return `<div class="card p-4">
       <div class="flex items-start justify-between gap-3">
         <div class="min-w-0">
-          <p class="font-semibold">${u.building_name} — وحدة ${u.unit_number}</p>
+          <p class="font-semibold">${esc(u.building_name)} — وحدة ${esc(u.unit_number)}</p>
           <p class="text-sm text-ink-500">${u.area_sqm?`<span class="num">${u.area_sqm}</span> م² · `:''}<span class="num">${money(u.base_rent)}</span> ر.س/سنة</p>
         </div>
         <div class="shrink-0 flex flex-col items-end gap-1">
@@ -1883,10 +2142,10 @@ function openUnitEdit(id){
   w.innerHTML=`<div class="absolute inset-0 bg-ink-900/45" onclick="closeModal()"></div>
   <div class="card relative w-full max-w-md p-6 fade my-8">
     <h3 class="font-bold text-xl">تعديل بيانات الوحدة</h3>
-    <p class="text-ink-500 text-sm mt-1 mb-5">${u.building_name} — وحدة ${u.unit_number}</p>
+    <p class="text-ink-500 text-sm mt-1 mb-5">${esc(u.building_name)} — وحدة ${esc(u.unit_number)}</p>
     <div class="grid grid-cols-2 gap-3">
-      <div><label class="eyebrow block mb-2">المبنى</label><input id="ed_b" class="field" value="${u.building_name||''}"></div>
-      <div><label class="eyebrow block mb-2">رقم الوحدة</label><input id="ed_n" class="field" value="${u.unit_number||''}"></div>
+      <div><label class="eyebrow block mb-2">المبنى</label><input id="ed_b" class="field" value="${esc(u.building_name||'')}"></div>
+      <div><label class="eyebrow block mb-2">رقم الوحدة</label><input id="ed_n" class="field" value="${esc(u.unit_number||'')}"></div>
       <div><label class="eyebrow block mb-2">المساحة (م²)</label><input id="ed_a" type="number" class="field" value="${u.area_sqm??''}"></div>
       <div><label class="eyebrow block mb-2">الإيجار السنوي (ر.س)</label><input id="ed_r" type="number" class="field" value="${u.base_rent??''}"></div>
       <div class="col-span-2"><label class="eyebrow block mb-2">نوع الوحدة</label>
@@ -1946,6 +2205,7 @@ async function deleteUnit(id){
   await db.from('meter_readings').delete().eq('unit_id',id);
   await db.from('expenses').delete().eq('unit_id',id);
 
+  await logAction('delete','unit',id,'حذف وحدة');
   const {error}=await db.from('units').delete().eq('id',id);
   if(error) return alert('تعذّر حذف الوحدة.\nالسبب: '+error.message);
   closeModal(); unitsView();
@@ -1957,7 +2217,7 @@ function openReading(unitId){
   w.innerHTML=`<div class="absolute inset-0 bg-ink-900/45" onclick="closeModal()"></div>
   <div class="card relative w-full max-w-sm p-6 fade">
     <h3 class="font-bold text-xl">تسجيل قراءة عداد</h3>
-    <p class="text-ink-500 text-sm mt-1 mb-5">${u.building_name} — وحدة ${u.unit_number}</p>
+    <p class="text-ink-500 text-sm mt-1 mb-5">${esc(u.building_name)} — وحدة ${esc(u.unit_number)}</p>
     <label class="eyebrow block mb-2">نوع العداد</label>
     <select id="m_t" class="field mb-4"><option value="electricity">كهرباء</option><option value="water">مياه</option></select>
     <label class="eyebrow block mb-2">القراءة</label><input id="m_v" type="number" class="field mb-4" dir="ltr">
@@ -1979,7 +2239,7 @@ async function saveReading(unit_id){
     const u=units.find(x=>x.id===unit_id);
     await db.from('expenses').insert({ building_name:u?.building_name||null, category:'utilities', amount,
       expense_date:reading_date, unit_id, source:'meter', ref_id:data.id,
-      notes:`فاتورة ${type==='electricity'?'كهرباء':'مياه'} — وحدة ${u?.unit_number||''}` });
+      notes:`فاتورة ${type==='electricity'?'كهرباء':'مياه'} — وحدة ${esc(u?.unit_number||'')}` });
   }
   closeModal(); unitsView();
 }
@@ -1999,7 +2259,7 @@ async function settingsView(){
   <div class="fade space-y-6">
     <div class="card p-5">
       <p class="eyebrow">حسابك</p>
-      <p class="font-bold mt-1">${ME.full_name||user.email}</p>
+      <p class="font-bold mt-1">${esc(ME.full_name||user.email)}</p>
       <p class="text-sm text-ink-500">${ROLE_LABEL[ME.role]||ME.role}</p>
     </div>
 
@@ -2018,14 +2278,14 @@ async function settingsView(){
         <p class="eyebrow mb-2">المباني المسموح له بالاطلاع عليها</p>
         <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
           ${buildings.map(b=>`<label class="flex items-center gap-2 border border-paper-200 rounded-lg px-3 py-2 text-sm">
-            <input type="checkbox" class="au_b" value="${b.name}"> ${b.name}</label>`).join('')||'<p class="text-sm text-ink-300">لا مبانٍ مسجّلة</p>'}
+            <input type="checkbox" class="au_b" value="${esc(b.name)}"> ${esc(b.name)}</label>`).join('')||'<p class="text-sm text-ink-300">لا مبانٍ مسجّلة</p>'}
         </div>
       </div>
       <button onclick="addAppUser()" class="btn-primary mt-3">حفظ</button>
       <div class="mt-5 space-y-2">
         ${appUsers.map(u=>`<div class="flex items-center justify-between gap-3 border border-paper-100 rounded-lg p-3">
-          <div class="min-w-0"><p class="font-semibold truncate">${u.full_name||u.email}</p>
-            <p class="text-xs text-ink-500 num truncate">${u.email}</p>
+          <div class="min-w-0"><p class="font-semibold truncate">${esc(u.full_name||u.email)}</p>
+            <p class="text-xs text-ink-500 num truncate">${esc(u.email)}</p>
             ${u.role==='landlord'?`<p class="text-xs text-amber-600 truncate">${(u.buildings||[]).length?'مباني: '+(u.buildings||[]).join('، '):'لم تُحدَّد مبانيه — لن يرى شيئًا'}</p>`:''}</div>
           <div class="flex items-center gap-2 shrink-0">
             <select onchange="setRole('${u.id}',this.value)" class="field w-auto py-1 text-sm" ${u.email.toLowerCase()===String(user.email).toLowerCase()?'disabled title="لا يمكنك تغيير دور حسابك"':''}>
@@ -2066,7 +2326,7 @@ async function settingsView(){
       <div class="space-y-1.5 max-h-72 overflow-y-auto">
         ${auditRows.map(a=>`<div class="flex justify-between gap-3 text-sm border-b border-paper-100 pb-1.5">
           <span class="min-w-0 truncate"><span class="font-medium">${({create:'إنشاء',renew:'تجديد',payout:'تحويل للمالك',backfill:'تسوية سابقة'})[a.action]||a.action}</span>
-            <span class="text-ink-500"> ${a.details||''}</span></span>
+            <span class="text-ink-500"> ${esc(a.details||'')}</span></span>
           <span class="shrink-0 text-ink-500 text-xs num">${(a.created_at||'').slice(0,16).replace('T',' ')}</span>
         </div>`).join('')||'<p class="text-sm text-ink-300">لا حركات مسجّلة بعد.</p>'}
       </div>
@@ -2120,7 +2380,7 @@ async function exportTable(name){
   const csv='\uFEFF'+[cols.join(','),...data.map(r=>cols.map(c=>esc(r[c])).join(','))].join('\n');
   const a=document.createElement('a');
   a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));
-  a.download=`${name}-${today()}.csv`; a.click(); URL.revokeObjectURL(a.href);
+  a.download=`${esc(name)}-${today()}.csv`; a.click(); URL.revokeObjectURL(a.href);
 }
 
 function toggleScopeBox(){
@@ -2181,14 +2441,14 @@ function renderTenants(){
   const C={active:'bg-teal-100 text-teal-700',inactive:'bg-paper-100 text-ink-500',blacklisted:'bg-rose-100 text-rose-600'};
   box.innerHTML=tenants.map(t=>`<div class="card p-4 flex items-center justify-between gap-3">
     <div class="min-w-0">
-      <p class="font-semibold truncate">${t.full_name}
+      <p class="font-semibold truncate">${esc(t.full_name)}
         ${(()=>{const my=leases.filter(l=>l.tenant_id===t.id);
           const act=my.filter(l=>l.status==='active'||l.status==='renewed');
           return act.length?`<span class="pill bg-teal-100 text-teal-700 mr-1">عقد ساري<span class="num">${act.length>1?' ×'+act.length:''}</span></span>`
                : my.length?`<span class="pill bg-paper-100 text-ink-500 mr-1">عقد سابق</span>`
                           :`<span class="pill bg-amber-100 text-amber-600 mr-1">بلا عقد</span>`;})()}
       </p>
-      <p class="text-sm text-ink-500"><span class="num">${t.phone}</span>${t.national_id?` · <span class="num">${t.national_id}</span>`:''}</p>
+      <p class="text-sm text-ink-500"><span class="num">${esc(t.phone)}</span>${t.national_id?` · <span class="num">${esc(t.national_id)}</span>`:''}</p>
       ${(()=>{ if(!t.id_expiry) return '';
         const days=Math.round((new Date(t.id_expiry)-new Date())/864e5);
         return days<60?`<p class="text-xs mt-1 ${days<0?'text-rose-600':'text-amber-600'} font-semibold">${days<0?'الهوية منتهية':'الهوية تنتهي خلال '}<span class="num">${Math.abs(days)}</span> يوم</p>`:''; })()}
@@ -2216,10 +2476,10 @@ function openTenantEdit(id){
   w.innerHTML=`<div class="absolute inset-0 bg-ink-900/45" onclick="closeModal()"></div>
   <div class="card relative w-full max-w-md p-6 fade my-8">
     <h3 class="font-bold text-xl mb-5">تعديل بيانات المستأجر</h3>
-    <label class="eyebrow block mb-2">الاسم الكامل</label><input id="te_name" class="field mb-4" value="${t.full_name||''}">
+    <label class="eyebrow block mb-2">الاسم الكامل</label><input id="te_name" class="field mb-4" value="${esc(t.full_name||'')}">
     <div class="grid grid-cols-2 gap-3">
-      <div><label class="eyebrow block mb-2">رقم الجوال</label><input id="te_phone" class="field" dir="ltr" value="${t.phone||''}"></div>
-      <div><label class="eyebrow block mb-2">رقم الهوية</label><input id="te_id" class="field" dir="ltr" value="${t.national_id||''}"></div>
+      <div><label class="eyebrow block mb-2">رقم الجوال</label><input id="te_phone" class="field" dir="ltr" value="${esc(t.phone||'')}"></div>
+      <div><label class="eyebrow block mb-2">رقم الهوية</label><input id="te_id" class="field" dir="ltr" value="${esc(t.national_id||'')}"></div>
       <div class="col-span-2"><label class="eyebrow block mb-2">انتهاء الهوية / الإقامة</label><input id="te_x" type="date" class="field" value="${t.id_expiry||''}"></div>
     </div>
     <p id="te_err" class="text-rose-600 text-sm mt-3 hidden"></p>
@@ -2249,6 +2509,7 @@ async function deleteTenant(id){
   if(act.length) return alert('هذا المستأجر عليه عقد ساري. أنهِ العقد أولاً.');
   if(!confirm(own.length?`سيُحذف المستأجر و${own.length} عقد منتهٍ ودفعاتها. متابعة؟`:'حذف هذا المستأجر نهائيًا؟')) return;
   if(own.length) await db.from('leases').delete().in('id',own.map(l=>l.id));
+  await logAction('delete','tenant',id,'حذف مستأجر');
   const {error}=await db.from('tenants').delete().eq('id',id);
   if(error) return alert('تعذّر الحذف — المستأجر مرتبط بسجلات أخرى.');
   closeModal(); await load.tenants(tq); renderTenants();
