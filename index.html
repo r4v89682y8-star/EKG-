@@ -144,7 +144,7 @@ details[open] summary::before{ content:'−'; transform:rotate(180deg); }
   const SUPABASE_KEY = "sb_publishable_26WQJ1wSFyt3eNDdkj2yyw_RwYDK6yf";
   const BRAND = "أصول";              // ← اسم النظام، غيّره من هنا
   const BRAND_SUB = "إدارة وتشغيل وصيانة الأصول العقارية";
-  const VERSION = "v24";                // للتأكد من أن النسخة المنشورة محدّثة
+  const VERSION = "v25";                // للتأكد من أن النسخة المنشورة محدّثة
 </script>
 
 <div id="app"></div>
@@ -674,7 +674,9 @@ function bookBlock(title, rows, note){
       <table class="w-full min-w-[620px]">
         <thead><tr><th>المبنى</th><th>الإشغال</th><th>محصّل</th><th>متأخر</th><th>مصروفات</th>${managed?'<th>أتعاب</th><th>المستحق للمالك</th>':'<th>الصافي</th>'}<th></th></tr></thead>
         <tbody>${rows.map(r=>`<tr>
-          <td class="font-semibold">${esc(r.name)}${r.owner_name?`<span class="block text-xs font-normal text-ink-500">${esc(r.owner_name)}</span>`:''}</td>
+          <td><button onclick="openUnitsBreakdown('${escJs(r.name)}')" class="font-semibold text-right hover:text-teal-700 transition" style="text-decoration:underline;text-decoration-color:var(--paper-200);text-underline-offset:4px">
+              ${esc(r.name)}${r.owner_name?`<span class="block text-xs font-normal text-ink-500" style="text-decoration:none">${esc(r.owner_name)}</span>`:''}
+            </button></td>
           <td><span class="num">${r.occupied}</span>/<span class="num">${r.unitsTotal}</span></td>
           <td class="text-teal-700"><span class="num">${money(r.collected)}</span></td>
           <td class="${r.overdue?'text-rose-600':''}"><span class="num">${money(r.overdue)}</span></td>
@@ -697,6 +699,73 @@ function bookBlock(title, rows, note){
       </table>
     </div>
   </div>`;
+}
+
+
+/** تفصيل وحدات مبنى: المسكون والشاغر وما تحت الصيانة */
+function openUnitsBreakdown(name){
+  const list=units.filter(u=>u.building_name===name)
+    .sort((a,b)=>String(a.unit_number).localeCompare(String(b.unit_number),undefined,{numeric:true}));
+  const occ=list.filter(u=>u.status==='occupied');
+  const vac=list.filter(u=>u.status==='vacant');
+  const mnt=list.filter(u=>u.status==='maintenance');
+  const rate=list.length?Math.round(occ.length/list.length*100):0;
+  const lostRent=vac.reduce((s,u)=>s+Number(u.base_rent||0),0);
+
+  const leaseOf=id=>leases.find(l=>l.unit_id===id&&(l.status==='active'||l.status==='renewed'));
+  const row=(u,tone)=>{
+    const l=leaseOf(u.id);
+    const days=l&&isValidDate(l.end_date)?Math.round((new Date(l.end_date)-new Date(today()))/864e5):null;
+    return `<div class="flex items-center justify-between gap-3 py-2.5 border-b" style="border-color:var(--paper-100)">
+      <div class="min-w-0">
+        <p class="font-semibold text-sm">وحدة <span class="num">${esc(u.unit_number)}</span>
+          ${u.unit_type==='commercial'?'<span class="pill bg-amber-100 text-amber-600 mr-1">تجاري</span>':''}</p>
+        <p class="text-xs text-ink-500 truncate">
+          ${l?`${esc(l.tenants?.full_name||'—')}${days!==null?` · ينتهي بعد <span class="num">${days}</span> يوم`:''}`
+             :`${u.area_sqm?`<span class="num">${u.area_sqm}</span> م² · `:''}<span class="num">${money(u.base_rent)}</span> ر.س سنويًا`}
+        </p>
+      </div>
+      <span class="pill shrink-0 ${tone}"><span class="num">${money(l?l.annual_rent||u.base_rent:u.base_rent)}</span></span>
+    </div>`;
+  };
+
+  const w=document.createElement('div'); w.id='modal'; w.className='fixed inset-0 z-40 grid place-items-center p-4 overflow-y-auto';
+  w.innerHTML=`<div class="absolute inset-0" style="background:color-mix(in srgb,var(--ink-900) 45%,transparent)" onclick="closeModal()"></div>
+  <div class="card relative w-full max-w-lg p-6 fade my-8">
+    <h3 class="font-bold text-xl">${esc(name)}</h3>
+    <p class="text-ink-500 text-sm mt-1 mb-5">توزيع الوحدات وحالتها</p>
+
+    <div class="grid grid-cols-3 gap-2 mb-5">
+      <div class="text-center p-3 rounded-xl" style="background:var(--brand-100)">
+        <p class="text-2xl font-bold display text-teal-700"><span class="num">${occ.length}</span></p>
+        <p class="text-xs text-ink-500 mt-0.5">مؤجّرة</p></div>
+      <div class="text-center p-3 rounded-xl" style="background:var(--paper-100)">
+        <p class="text-2xl font-bold display"><span class="num">${vac.length}</span></p>
+        <p class="text-xs text-ink-500 mt-0.5">شاغرة</p></div>
+      <div class="text-center p-3 rounded-xl" style="background:var(--gold-100)">
+        <p class="text-2xl font-bold display text-amber-600"><span class="num">${mnt.length}</span></p>
+        <p class="text-xs text-ink-500 mt-0.5">صيانة</p></div>
+    </div>
+
+    <div class="flex items-center justify-between text-sm mb-2">
+      <span class="eyebrow">الإشغال <span class="num">${rate}</span>%</span>
+      ${lostRent?`<span class="text-xs text-rose-600">إيراد معطّل بالشواغر <span class="num">${money(lostRent)}</span> ر.س</span>`:''}
+    </div>
+    <div class="lattice mb-6">${list.map(u=>`<span title="وحدة ${esc(u.unit_number)}" style="height:22px;flex:1;min-width:12px;background:${u.status==='occupied'?'var(--brand-700)':u.status==='maintenance'?'var(--gold-600)':'var(--paper-200)'}"></span>`).join('')||'<span class="text-sm text-ink-300">لا وحدات</span>'}</div>
+
+    <div class="max-h-80 overflow-y-auto">
+      ${mnt.length?`<p class="eyebrow mt-1 mb-1">تحت الصيانة</p>${mnt.map(u=>row(u,'bg-amber-100 text-amber-600')).join('')}`:''}
+      ${vac.length?`<p class="eyebrow mt-4 mb-1">شاغرة</p>${vac.map(u=>row(u,'bg-paper-100 text-ink-500')).join('')}`:''}
+      ${occ.length?`<p class="eyebrow mt-4 mb-1">مؤجّرة</p>${occ.map(u=>row(u,'bg-teal-100 text-teal-700')).join('')}`:''}
+      ${list.length?'':'<p class="text-sm text-ink-300 text-center py-6">لا وحدات مسجّلة في هذا المبنى</p>'}
+    </div>
+
+    <div class="flex gap-2 mt-6">
+      <button onclick="closeModal();openStatement('${escJs(name)}')" class="btn-ghost flex-1">كشف الحساب</button>
+      <button onclick="closeModal()" class="btn-primary flex-1">إغلاق</button>
+    </div>
+  </div>`;
+  document.body.appendChild(w);
 }
 
 /** كشف حساب تفصيلي لمبنى: بنود المصروفات + التحصيل */
@@ -945,6 +1014,7 @@ function renderBuildings(){
           </p>
         </div>
         <div class="flex gap-1.5">
+          <button onclick="openUnitsBreakdown('${escJs(b.name)}')" class="btn-ghost">الوحدات</button>
           <button onclick="openStatement('${escJs(b.name)}')" class="btn-ghost">كشف الحساب</button>
           ${b.ownership==='managed'?`<button onclick="openPayout('${escJs(b.name)}')" class="btn-ghost text-teal-700 border-teal-100">تسوية المالك</button>`:''}
           ${b._ghost?`<button onclick="quickRegister('${escJs(b.name)}')" class="btn-ghost text-teal-700 border-teal-100">تسجيل</button>`
@@ -2029,6 +2099,99 @@ async function rebuildSchedule(id){
   if(error) return showError('تعذّرت إعادة البناء: '+error.message);
   await logAction('reschedule','lease',id,`${rows.length} دفعة`);
   go('collection');
+}
+
+
+function openLeaseEdit(id){
+  const l=leases.find(x=>x.id===id);
+  const paid=payments.filter(p=>p.lease_id===id&&(p.status==='paid'||Number(p.paid_amount)>0)).length;
+  const w=document.createElement('div'); w.id='modal'; w.className='fixed inset-0 z-40 grid place-items-center p-4 overflow-y-auto';
+  w.innerHTML=`<div class="absolute inset-0" style="background:color-mix(in srgb,var(--ink-900) 45%,transparent)" onclick="closeModal()"></div>
+  <div class="card relative w-full max-w-md p-6 fade my-8">
+    <h3 class="font-bold text-xl">تعديل العقد</h3>
+    <p class="text-ink-500 text-sm mt-1 mb-5">${esc(l.tenants?.full_name||'—')} · ${esc(l.units?.building_name||'')} وحدة ${esc(l.units?.unit_number||'')}</p>
+    <div class="grid grid-cols-2 gap-3">
+      <div><label class="eyebrow block mb-2">بداية العقد</label><input id="le_s" type="date" class="field" value="${l.start_date||''}"></div>
+      <div><label class="eyebrow block mb-2">نهاية العقد</label><input id="le_e" type="date" class="field" value="${l.end_date||''}"></div>
+      <div><label class="eyebrow block mb-2">الإيجار السنوي (ر.س)</label><input id="le_r" type="number" class="field" value="${l.annual_rent??''}"></div>
+      <div><label class="eyebrow block mb-2">عدد دفعات العقد</label>
+        <select id="le_c" class="field">
+          ${[1,2,3,4,6,12].map(n=>`<option value="${n}" ${Number(l.installments)===n?'selected':''}>${n===1?'دفعة واحدة':n+' دفعات'}</option>`).join('')}
+        </select></div>
+      <div class="col-span-2"><label class="eyebrow block mb-2">حالة العقد</label>
+        <select id="le_st" class="field">
+          <option value="active" ${l.status==='active'?'selected':''}>ساري</option>
+          <option value="renewed" ${l.status==='renewed'?'selected':''}>مجدد</option>
+          <option value="terminated" ${l.status==='terminated'?'selected':''}>منتهي</option>
+          <option value="expired" ${l.status==='expired'?'selected':''}>منتهي الصلاحية</option>
+        </select></div>
+    </div>
+    <div id="le_impact" class="mt-4 p-3 rounded-xl text-sm" style="background:var(--paper-50);border:1px solid var(--paper-200)"></div>
+    ${paid?`<p class="text-xs text-amber-600 mt-2">يوجد <span class="num">${paid}</span> دفعة مسددة — تغيير الشروط سيحذف سدادها.</p>`:''}
+    <p id="le_err" class="text-rose-600 text-sm mt-3 hidden"></p>
+    <div class="flex gap-2 mt-5">
+      <button onclick="saveLeaseEdit('${l.id}','${l.unit_id}')" class="btn-primary flex-1">حفظ التعديلات</button>
+      <button onclick="closeModal()" class="btn-ghost px-4">إلغاء</button>
+    </div>
+  </div>`;
+  document.body.appendChild(w);
+  ['le_s','le_e','le_r','le_c'].forEach(k=>document.getElementById(k).addEventListener('input',()=>leaseImpact(id)));
+  leaseImpact(id);
+}
+
+/** يوضّح أثر التعديل على جدول الدفعات قبل الحفظ */
+function leaseImpact(id){
+  const box=document.getElementById('le_impact'); if(box.dataset.ghost) return;
+  const l=leases.find(x=>x.id===id);
+  const start=le_s.value, end=le_e.value, annual=Number(le_r.value), count=Number(le_c.value);
+  const changed = start!==l.start_date || end!==l.end_date
+        || annual!==Number(l.annual_rent||0) || count!==Number(l.installments||1);
+  const current = payments.filter(p=>p.lease_id===id).length;
+  if(!changed){
+    box.innerHTML=`<span class="text-ink-500">جدول الدفعات الحالي: <b class="num">${current}</b> دفعة — لن يتغيّر.</span>`;
+    return;
+  }
+  const rows=(start&&end&&annual)?buildSchedule(id,start,end,annual,count||1,Number(l.vat_pct||0)):[];
+  box.innerHTML = rows.length
+    ? `<span class="text-teal-700 font-semibold">سيُعاد توليد الجدول:</span>
+       <span class="block mt-1">من <b class="num">${current}</b> إلى <b class="num">${rows.length}</b> دفعة ×
+       <b class="num">${money(rows[0].amount)}</b> ر.س — أول استحقاق <span class="num">${rows[0].due_date}</span></span>`
+    : `<span class="text-rose-600">أكمل التواريخ والإيجار لعرض الجدول الجديد.</span>`;
+}
+
+async function saveLeaseEdit(id,unitId){
+  const l=leases.find(x=>x.id===id);
+  const start_date=le_s.value, end_date=le_e.value, annual=Number(le_r.value),
+        count=Number(le_c.value), status=le_st.value, err=document.getElementById('le_err');
+  err.classList.add('hidden');
+  const fail=m=>{err.textContent=m;err.classList.remove('hidden');};
+  if(!start_date||!end_date||!annual) return fail('التواريخ والإيجار مطلوبة.');
+  if(new Date(end_date)<=new Date(start_date)) return fail('تاريخ النهاية يجب أن يكون بعد تاريخ البداية.');
+
+  const schedChanged = start_date!==l.start_date || end_date!==l.end_date
+        || annual!==Number(l.annual_rent||0) || count!==Number(l.installments||1);
+  const paid = payments.filter(p=>p.lease_id===id&&(p.status==='paid'||Number(p.paid_amount)>0));
+
+  if(schedChanged && !confirm(paid.length
+      ? `سيُعاد توليد جدول الدفعات ليطابق العقد.\n\nتنبيه: سيُحذف سداد ${paid.length} دفعة.\nمتابعة؟`
+      : `سيُعاد توليد جدول الدفعات (${count===1?'دفعة واحدة':count+' دفعات'}). متابعة؟`)) return;
+
+  const unit=units.find(u=>u.id===unitId);
+  const vat_pct = unit?.unit_type==='commercial' ? 15 : 0;
+  const {error}=await db.from('leases').update({ start_date, end_date, status,
+    annual_rent:annual, installments:count, monthly_rent:Math.round(annual/12), vat_pct }).eq('id',id);
+  if(error) return fail('تعذّر الحفظ: '+error.message);
+
+  if(schedChanged){
+    await db.from('payments').delete().eq('lease_id',id);
+    const rows=buildSchedule(id,start_date,end_date,annual,count,vat_pct);
+    const {error:e2}=await db.from('payments').insert(rows);
+    if(e2) return fail('حُفظ العقد، لكن تعذّر توليد الدفعات: '+e2.message);
+    await logAction('reschedule','lease',id,`${rows.length} دفعة`);
+  }
+  await db.from('units').update({ status:(status==='active'||status==='renewed')?'occupied':'vacant' }).eq('id',unitId);
+  closeModal();
+  schedChanged ? go('collection') : leasesView();
 }
 
 async function endLease(id,unitId){
