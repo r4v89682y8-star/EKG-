@@ -144,12 +144,29 @@ details[open] summary::before{ content:'−'; transform:rotate(180deg); }
   const SUPABASE_KEY = "sb_publishable_26WQJ1wSFyt3eNDdkj2yyw_RwYDK6yf";
   const BRAND = "أصول";              // ← اسم النظام، غيّره من هنا
   const BRAND_SUB = "إدارة وتشغيل وصيانة الأصول العقارية";
-  const VERSION = "v21";                // للتأكد من أن النسخة المنشورة محدّثة
+  const VERSION = "v22";                // للتأكد من أن النسخة المنشورة محدّثة
 </script>
 
 <div id="app"></div>
 
 <script>
+
+/* ═══ حصانة عامة: عنصر مفقود لا يُسقط الواجهة ═══
+   بعض نقاط الرسم تُستدعى بعد إعادة بناء الصفحة، فيختفي العنصر الذي تكتب فيه.
+   بدل أن يتوقف التنفيذ، نعيد عنصرًا صوريًا منفصلًا يمتص الكتابة بلا أثر. */
+(function(){
+  const real = document.getElementById.bind(document);
+  const seen = new Set();
+  document.getElementById = function(id){
+    const el = real(id);
+    if(el) return el;
+    if(!seen.has(id)){ seen.add(id); console.warn('[أصول] عنصر غير موجود:', id); }
+    const ghost = document.createElement('div');
+    ghost.dataset.ghost = id;
+    return ghost;
+  };
+})();
+
 const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 /* ═══ المظهر: ثيم وخط وحجم — يُحفظ لكل مستخدم ═══ */
@@ -196,7 +213,7 @@ function openAppearance(){
 }
 
 function renderAppearance(){
-  const box=document.getElementById('appearance'); if(!box) return;
+  const box=document.getElementById('appearance'); if(box.dataset.ghost) return;
   box.innerHTML=`
     <h3 class="font-bold text-xl">المظهر</h3>
     <p class="text-ink-500 text-sm mt-1 mb-6">اختيارك يُحفظ على هذا الجهاز ولا يؤثّر على بقية الفريق.</p>
@@ -555,7 +572,7 @@ const navBtn = t => `<button onclick="go('${t.id}')" class="navlink ${tab===t.id
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="${t.icon}"/></svg>${t.label}</button>`;
 function toggleNav(){ navOpen=!navOpen; document.getElementById('drawer').classList.toggle('hidden',!navOpen); }
 function go(t){ tab=t; navOpen=false; shell(); }
-function route(){ if(!allowed(tab)) tab=(ROLE_TABS[ME.role]||['dash'])[0]; ({dash:dashView,collection:collectionView,buildings:buildingsView,finance:financeView,maint:maintView,staff:staffView,leases:leasesView,units:unitsView,tenants:tenantsView,settings:settingsView})[tab](); }
+function route(){ if(document.getElementById('main').dataset.ghost) return; if(!allowed(tab)) tab=(ROLE_TABS[ME.role]||['dash'])[0]; ({dash:dashView,collection:collectionView,buildings:buildingsView,finance:financeView,maint:maintView,staff:staffView,leases:leasesView,units:unitsView,tenants:tenantsView,settings:settingsView})[tab](); }
 const head=(t,s)=>`<div class="mb-7"><h1 class="text-2xl font-bold">${t}</h1><p class="text-ink-500 mt-1">${s}</p></div>`;
 const empty=m=>`<div class="card p-10 text-center text-ink-500">${m}</div>`;
 
@@ -1140,7 +1157,7 @@ async function collectionView(){
 const chip=(id,label,n)=>`<button onclick="setPayFilter('${id}')" class="shrink-0 px-4 py-2 rounded-lg text-sm border ${payFilter===id?'bg-teal-900 text-white border-teal-900 font-semibold':'bg-white border-paper-200 text-ink-700'}">${label} <span class="num opacity-70">${n}</span></button>`;
 function setPayFilter(f){ payFilter=f; collectionView(); }
 function renderPayments(){
-  if(!document.getElementById('plist')) return;
+  if(document.getElementById('plist').dataset.ghost) return;
   const t=today();
   const scope=payments.filter(p=>inPeriod(p.due_date));
   let rows=scope;
@@ -1247,7 +1264,7 @@ function parseNote(text){
 
 let QP=null;
 function runQuick(){
-  const el=document.getElementById('q_text'); if(!el) return;
+  const el=document.getElementById('q_text'); if(el.dataset.ghost) return;
   const txt=el.value;
   if(!txt.trim()) return;
   QP=parseNote(txt);
@@ -1283,7 +1300,7 @@ function runQuick(){
 
 function quickUnits(){
   const sel=document.getElementById('q_b'), box=document.getElementById('q_units');
-  if(!sel||!box) return;
+  if(sel.dataset.ghost||box.dataset.ghost) return;
   const b=sel.value;
   const list=units.filter(u=>u.building_name===b);
   box.innerHTML = list.length
@@ -1685,7 +1702,7 @@ async function staffView(){
 }
 
 function renderPayRuns(){
-  const box=document.getElementById('payruns'); if(!box) return;
+  const box=document.getElementById('payruns'); if(box.dataset.ghost) return;
   const rows=expenses.filter(e=>e.source==='salary');
   if(!rows.length){ box.innerHTML=''; return; }
   const byPeriod={};
@@ -2346,7 +2363,7 @@ async function settingsView(){
 
 function importHint(){
   const sel=document.getElementById('im_t'), hint=document.getElementById('im_hint');
-  if(!sel||!hint) return;
+  if(sel.dataset.ghost||hint.dataset.ghost) return;
   const t=sel.value;
   hint.textContent = t==='units'
     ? 'الترتيب: المبنى | رقم الوحدة | المساحة | الإيجار السنوي | سكني أو تجاري'
