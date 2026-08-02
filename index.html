@@ -144,7 +144,7 @@ details[open] summary::before{ content:'−'; transform:rotate(180deg); }
   const SUPABASE_KEY = "sb_publishable_26WQJ1wSFyt3eNDdkj2yyw_RwYDK6yf";
   const BRAND = "أصول";              // ← اسم النظام، غيّره من هنا
   const BRAND_SUB = "إدارة وتشغيل وصيانة الأصول العقارية";
-  const VERSION = "v20";                // للتأكد من أن النسخة المنشورة محدّثة
+  const VERSION = "v21";                // للتأكد من أن النسخة المنشورة محدّثة
 </script>
 
 <div id="app"></div>
@@ -326,7 +326,10 @@ function showError(msg){
     document.body.appendChild(b); }
   b.innerHTML='<span style="flex:1">'+msg+'</span><button onclick="this.parentNode.remove()" style="font-weight:700">إغلاق</button>';
 }
-window.onerror=(m,src,line)=>{ showError('خطأ: '+m+' (سطر '+line+')'); };
+window.onerror=(m,src,line,col,err)=>{
+  const where=(err&&err.stack||'').split('\n')[1]||'';
+  showError('خطأ: '+m+' (سطر '+line+')'+(where?'<br><span style="opacity:.8;font-size:.75rem">'+esc(where.trim())+'</span>':''));
+};
 window.onunhandledrejection=e=>{ showError('خطأ: '+(e.reason?.message||e.reason)); };
 const guard=fn=>(...a)=>{ try{ const r=fn(...a); if(r&&r.catch) r.catch(e=>showError('خطأ: '+(e.message||e))); return r; }catch(e){ showError('خطأ: '+(e.message||e)); } };
 const app = document.getElementById('app');
@@ -1137,6 +1140,7 @@ async function collectionView(){
 const chip=(id,label,n)=>`<button onclick="setPayFilter('${id}')" class="shrink-0 px-4 py-2 rounded-lg text-sm border ${payFilter===id?'bg-teal-900 text-white border-teal-900 font-semibold':'bg-white border-paper-200 text-ink-700'}">${label} <span class="num opacity-70">${n}</span></button>`;
 function setPayFilter(f){ payFilter=f; collectionView(); }
 function renderPayments(){
+  if(!document.getElementById('plist')) return;
   const t=today();
   const scope=payments.filter(p=>inPeriod(p.due_date));
   let rows=scope;
@@ -1243,7 +1247,8 @@ function parseNote(text){
 
 let QP=null;
 function runQuick(){
-  const txt=document.getElementById('q_text').value;
+  const el=document.getElementById('q_text'); if(!el) return;
+  const txt=el.value;
   if(!txt.trim()) return;
   QP=parseNote(txt);
   const box=document.getElementById('q_preview');
@@ -1277,15 +1282,19 @@ function runQuick(){
 }
 
 function quickUnits(){
-  const b=document.getElementById('q_b').value;
+  const sel=document.getElementById('q_b'), box=document.getElementById('q_units');
+  if(!sel||!box) return;
+  const b=sel.value;
   const list=units.filter(u=>u.building_name===b);
-  document.getElementById('q_units').innerHTML = list.length
+  box.innerHTML = list.length
     ? list.map(u=>`<label class="flex items-center gap-1.5 border border-paper-200 rounded-lg px-2 py-1.5 text-sm bg-white">
         <input type="checkbox" class="q_u" value="${u.id}" ${QP.unitIds.includes(u.id)?'checked':''}> ${esc(u.unit_number)}</label>`).join('')
     : `<p class="text-sm text-ink-300 col-span-5">لا وحدات مسجّلة في هذا المبنى</p>`;
 }
 
-function clearQuick(){ QP=null; document.getElementById('q_preview').innerHTML=''; document.getElementById('q_text').value=''; }
+function clearQuick(){ QP=null;
+  const p=document.getElementById('q_preview'); if(p) p.innerHTML='';
+  const t=document.getElementById('q_text');    if(t) t.value=''; }
 
 async function saveQuick(){
   const building_name=document.getElementById('q_b').value,
@@ -2336,8 +2345,10 @@ async function settingsView(){
 }
 
 function importHint(){
-  const t=document.getElementById('im_t').value;
-  document.getElementById('im_hint').textContent = t==='units'
+  const sel=document.getElementById('im_t'), hint=document.getElementById('im_hint');
+  if(!sel||!hint) return;
+  const t=sel.value;
+  hint.textContent = t==='units'
     ? 'الترتيب: المبنى | رقم الوحدة | المساحة | الإيجار السنوي | سكني أو تجاري'
     : 'الترتيب: الاسم | الجوال | رقم الهوية';
 }
@@ -2376,11 +2387,11 @@ async function exportTable(name){
   const {data,error}=await db.from(name).select('*');
   if(error||!data?.length) return showError('لا بيانات للتصدير في هذا الجدول.');
   const cols=[...new Set(data.flatMap(r=>Object.keys(r)))];
-  const esc=v=>{ const x=v==null?'':(typeof v==='object'?JSON.stringify(v):String(v)); return /[",\n]/.test(x)?'"'+x.replace(/"/g,'""')+'"':x; };
-  const csv='\uFEFF'+[cols.join(','),...data.map(r=>cols.map(c=>esc(r[c])).join(','))].join('\n');
+  const cell=v=>{ const x=v==null?'':(typeof v==='object'?JSON.stringify(v):String(v)); return /[",\n]/.test(x)?'"'+x.replace(/"/g,'""')+'"':x; };
+  const csv='\uFEFF'+[cols.join(','),...data.map(r=>cols.map(c=>cell(r[c])).join(','))].join('\n');
   const a=document.createElement('a');
   a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));
-  a.download=`${esc(name)}-${today()}.csv`; a.click(); URL.revokeObjectURL(a.href);
+  a.download=`${name}-${today()}.csv`; a.click(); URL.revokeObjectURL(a.href);
 }
 
 function toggleScopeBox(){
