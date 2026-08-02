@@ -144,7 +144,7 @@ details[open] summary::before{ content:'−'; transform:rotate(180deg); }
   const SUPABASE_KEY = "sb_publishable_26WQJ1wSFyt3eNDdkj2yyw_RwYDK6yf";
   const BRAND = "أصول";              // ← اسم النظام، غيّره من هنا
   const BRAND_SUB = "إدارة وتشغيل وصيانة الأصول العقارية";
-  const VERSION = "v22";                // للتأكد من أن النسخة المنشورة محدّثة
+  const VERSION = "v23";                // للتأكد من أن النسخة المنشورة محدّثة
 </script>
 
 <div id="app"></div>
@@ -2020,12 +2020,8 @@ function openLeaseEdit(id){
           <option value="expired" ${l.status==='expired'?'selected':''}>منتهي الصلاحية</option>
         </select></div>
     </div>
-    <label class="flex items-start gap-2 mt-4 text-sm">
-      <input type="checkbox" id="le_regen" class="mt-1">
-      <span>إعادة توليد جدول الدفعات وفق البيانات الجديدة
-        <span class="block text-xs text-ink-500 mt-0.5">${paid?`تنبيه: يوجد <span class="num">${paid}</span> دفعة مسددة — إعادة التوليد ستحذفها مع سندات قبضها.`:'الدفعات الحالية ستُستبدل بجدول جديد.'}</span>
-      </span>
-    </label>
+    <div id="le_impact" class="mt-4 p-3 rounded-xl text-sm" style="background:var(--paper-50);border:1px solid var(--paper-200)"></div>
+    ${paid?`<p class="text-xs text-amber-600 mt-2">يوجد <span class="num">${paid}</span> دفعة مسددة على هذا العقد — تغيير الشروط سيحذف سدادها.</p>`:''}
     <p id="le_err" class="text-rose-600 text-sm mt-3 hidden"></p>
     <div class="flex gap-2 mt-5">
       <button onclick="saveLeaseEdit('${l.id}','${l.unit_id}')" class="btn-primary flex-1">حفظ التعديلات</button>
@@ -2033,28 +2029,70 @@ function openLeaseEdit(id){
     </div>
   </div>`;
   document.body.appendChild(w);
+  ['le_s','le_e','le_r','le_c'].forEach(k=>document.getElementById(k).addEventListener('input',()=>leaseImpact(id)));
+  leaseImpact(id);
+}
+
+/** يوضّح للمستخدم ما سيحدث لجدول الدفعات قبل الحفظ */
+function leaseImpact(id){
+  const box=document.getElementById('le_impact'); if(box.dataset.ghost) return;
+  const l=leases.find(x=>x.id===id);
+  const start=le_s.value, end=le_e.value, annual=Number(le_r.value), count=Number(le_c.value);
+  const changed = start!==l.start_date || end!==l.end_date
+        || annual!==Number(l.annual_rent||0) || count!==Number(l.installments||1);
+  const current = payments.filter(p=>p.lease_id===id).length;
+  if(!changed){
+    box.innerHTML=`<span class="text-ink-500">جدول الدفعات الحالي: <b class="num">${current}</b> دفعة — لن يتغيّر.</span>`;
+    return;
+  }
+  const rows = (start&&end&&annual) ? buildSchedule(id,start,end,annual,count||1) : [];
+  box.innerHTML = rows.length
+    ? `<span class="text-teal-700 font-semibold">سيُعاد توليد الجدول:</span>
+       <span class="block mt-1">من <b class="num">${current}</b> دفعة إلى <b class="num">${rows.length}</b> دفعة ×
+       <b class="num">${money(rows[0].amount)}</b> ر.س — أول استحقاق <span class="num">${rows[0].due_date}</span></span>`
+    : `<span class="text-rose-600">أكمل التواريخ والإيجار لعرض الجدول الجديد.</span>`;
 }
 
 async function saveLeaseEdit(id,unitId){
+  const l=leases.find(x=>x.id===id);
   const start_date=le_s.value, end_date=le_e.value, annual=Number(le_r.value),
-        count=Number(le_c.value), status=le_st.value, regen=le_regen.checked,
+        count=Number(le_c.value), status=le_st.value,
         err=document.getElementById('le_err');
   err.classList.add('hidden');
   const fail=m=>{err.textContent=m;err.classList.remove('hidden');};
   if(!start_date||!end_date||!annual) return fail('التواريخ والإيجار مطلوبة.');
   if(new Date(end_date)<=new Date(start_date)) return fail('تاريخ النهاية يجب أن يكون بعد تاريخ البداية.');
-  if(regen && !confirm('سيُحذف جدول الدفعات الحالي بالكامل ويُولَّد من جديد. متابعة؟')) return;
 
+  // أي تغيير يمسّ جدول الدفعات يستوجب إعادة توليده — وإلا بقي التحصيل مخالفًا للعقد
+  const schedChanged = start_date!==l.start_date || end_date!==l.end_date
+        || annual!==Number(l.annual_rent||0) || count!==Number(l.installments||1);
+  const mine  = payments.filter(p=>p.lease_id===id);
+  const paid  = mine.filter(p=>p.status==='paid'||Number(p.paid_amount)>0);
+
+  if(schedChanged){
+    const msg = paid.length
+      ? `تغيّرت شروط العقد، ويجب إعادة توليد جدول الدفعات ليطابقها.\n\nتنبيه: يوجد ${paid.length} دفعة مسددة أو جزئية سيُحذف سدادها.\nمتابعة؟`
+      : `سيُعاد توليد جدول الدفعات (${count===1?'دفعة واحدة':count+' دفعات'}) ليطابق العقد. متابعة؟`;
+    if(!confirm(msg)) return;
+  }
+
+  const unit=units.find(u=>u.id===unitId);
+  const vat_pct = unit?.unit_type==='commercial' ? 15 : 0;
   const {error}=await db.from('leases').update({ start_date, end_date, status,
-    annual_rent:annual, installments:count, monthly_rent:Math.round(annual/12) }).eq('id',id);
+    annual_rent:annual, installments:count, monthly_rent:Math.round(annual/12), vat_pct }).eq('id',id);
   if(error) return fail('تعذّر الحفظ: '+error.message);
 
-  if(regen){
+  if(schedChanged){
     await db.from('payments').delete().eq('lease_id',id);
-    await db.from('payments').insert(buildSchedule(id,start_date,end_date,annual,count));
+    const rows=buildSchedule(id,start_date,end_date,annual,count,vat_pct);
+    const {error:e2}=await db.from('payments').insert(rows);
+    if(e2) return fail('حُفظ العقد، لكن تعذّر توليد الدفعات: '+e2.message);
+    await logAction('reschedule','lease',id,`${rows.length} دفعة`);
   }
+
   await db.from('units').update({ status: (status==='active'||status==='renewed') ? 'occupied' : 'vacant' }).eq('id',unitId);
-  closeModal(); leasesView();
+  closeModal();
+  schedChanged ? go('collection') : leasesView();
 }
 
 async function endLease(id,unitId){
