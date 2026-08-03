@@ -144,7 +144,7 @@ details[open] summary::before{ content:'−'; transform:rotate(180deg); }
   const SUPABASE_KEY = "sb_publishable_26WQJ1wSFyt3eNDdkj2yyw_RwYDK6yf";
   const BRAND = "أصول";              // ← اسم النظام، غيّره من هنا
   const BRAND_SUB = "إدارة وتشغيل وصيانة الأصول العقارية";
-  const VERSION = "v26";                // للتأكد من أن النسخة المنشورة محدّثة
+  const VERSION = "v29";                // للتأكد من أن النسخة المنشورة محدّثة
 </script>
 
 <div id="app"></div>
@@ -877,7 +877,7 @@ function openRenew(id){
       <div><label class="eyebrow block mb-2">نهايتها</label><input id="rn_e" type="date" class="field" value="${ne||''}"></div>
       <div><label class="eyebrow block mb-2">الإيجار السنوي (ر.س)</label><input id="rn_r" type="number" class="field" value="${l.annual_rent??''}"></div>
       <div><label class="eyebrow block mb-2">عدد الدفعات</label>
-        <select id="rn_c" class="field">${[1,2,3,4,6,12].map(n=>`<option value="${n}" ${Number(l.installments)===n?'selected':''}>${n===1?'دفعة واحدة':n+' دفعات'}</option>`).join('')}</select></div>
+        <select id="rn_c" class="field">${[1,2,3,4,6,12].map(n=>`<option value="${n}" ${Number(l.installments)===n?'selected':''}>${n===1?'دفعة واحدة سنويًا':n+' دفعات سنويًا'}</option>`).join('')}</select></div>
     </div>
     <p class="text-xs text-ink-500 mt-3">يُقفل العقد الحالي كـ«مجدد»، ويُنشأ عقد جديد بجدول دفعاته، وتبقى الوحدة مؤجّرة.</p>
     <p id="rn_err" class="text-rose-600 text-sm mt-3 hidden"></p>
@@ -1935,10 +1935,10 @@ async function leasesView(){
         <div><label class="eyebrow block mb-2">بداية العقد</label><input id="l_start" type="date" class="field" value="${today()}"></div>
         <div><label class="eyebrow block mb-2">نهاية العقد</label><input id="l_end" type="date" class="field"></div>
         <div><label class="eyebrow block mb-2">الإيجار السنوي (ر.س)</label><input id="l_rent" type="number" class="field" oninput="previewPlan()"></div>
-        <div><label class="eyebrow block mb-2">عدد دفعات العقد</label>
+        <div><label class="eyebrow block mb-2">عدد الدفعات في السنة</label>
           <select id="l_count" class="field" onchange="previewPlan()">
             <option value="1">دفعة واحدة</option><option value="2">دفعتان</option>
-            <option value="3">٣ دفعات</option><option value="4">٤ دفعات</option><option value="6">٦ دفعات</option><option value="12">١٢ دفعة</option>
+            <option value="3">٣ دفعات</option><option value="4">٤ دفعات</option><option value="6">٦ دفعات</option><option value="12">١٢ دفعة (شهري)</option>
           </select></div>
         <div><label class="eyebrow block mb-2">رقم عقد إيجار</label><input id="l_ejar" class="field" dir="ltr" placeholder="اختياري"></div>
         <div><label class="eyebrow block mb-2">التأمين المسترد (ر.س)</label><input id="l_dep" type="number" class="field" value="0"></div>
@@ -1967,13 +1967,13 @@ function renderLeases(){
   box.innerHTML=leases.map(l=>`<div class="card p-4 flex items-center justify-between gap-3">
     <div class="min-w-0">
       <p class="font-semibold truncate">${esc(l.tenants?.full_name||'—')}</p>
-      <p class="text-sm text-ink-500 truncate">${esc(l.units?.building_name||'')} · وحدة ${esc(l.units?.unit_number||'')} · <span class="num">${money(l.annual_rent||l.monthly_rent*12)}</span> ر.س/سنة${l.installments?` · ${l.installments===1?'دفعة واحدة':l.installments+' دفعات'}`:''}</p>
+      <p class="text-sm text-ink-500 truncate">${esc(l.units?.building_name||'')} · وحدة ${esc(l.units?.unit_number||'')} · <span class="num">${money(l.annual_rent||l.monthly_rent*12)}</span> ر.س/سنة${l.installments?` · ${l.installments==1?'دفعة سنوية':l.installments+' دفعات/سنة'}`:''}</p>
       <p class="text-xs text-ink-300 mt-1"><span class="num">${l.start_date}</span> ← <span class="num">${l.end_date}</span></p>
     </div>
     <div class="flex flex-col items-end gap-1.5 shrink-0">
       <span class="pill ${C[l.status]||''}">${L[l.status]||l.status}</span>
-      ${(()=>{ const n=payments.filter(p=>p.lease_id===l.id).length, want=Number(l.installments||0);
-         return (want&&n&&n!==want)?`<span class="pill bg-amber-100 text-amber-600" title="جدول الدفعات لا يطابق العقد">الجدول <span class="num">${n}</span>/<span class="num">${want}</span></span>`:''; })()}
+      ${(()=>{ const n=payments.filter(p=>p.lease_id===l.id).length, want=expectedCount(l);
+         return (want&&n&&n!==want)?`<span class="pill bg-amber-100 text-amber-600" title="جدول الدفعات لا يطابق شروط العقد">الجدول <span class="num">${n}</span>/<span class="num">${want}</span></span>`:''; })()}
       <div class="flex gap-1.5">
         <button onclick="openLeaseEdit('${l.id}')" class="btn-ghost">تعديل</button>
         <button onclick="rebuildSchedule('${l.id}')" class="btn-ghost" title="إعادة بناء جدول الدفعات من بيانات العقد">إصلاح الجدول</button>
@@ -1986,9 +1986,10 @@ function renderLeases(){
 function previewPlan(){
   const box=document.getElementById('l_plan'); if(!box) return;
   const annual=Number(l_rent.value), n=Number(l_count.value);
-  box.textContent = annual>0
-    ? `${n===1?'دفعة واحدة':n+' دفعات'} × ${money(Math.round(annual/n))} ر.س — كل ${12/n} شهر`
-    : '';
+  if(!(annual>0)){ box.textContent=''; return; }
+  const rows=(l_start.value&&l_end.value)?buildSchedule('x',l_start.value,l_end.value,annual,n):[];
+  box.textContent = `${money(Math.round(annual/n))} ر.س كل ${Math.round(12/n)} شهر`
+    + (rows.length?` — ${rows.length} دفعة · إجمالي العقد ${money(rows.reduce((a,r)=>a+r.amount,0))} ر.س`:'');
 }
 
 let savingLease=false;
@@ -2071,33 +2072,27 @@ async function runBackfill(leaseId){
 /** دفعة لكل قسط: المبلغ = الإيجار السنوي ÷ عدد الدفعات، والفاصل = ١٢ ÷ عدد الدفعات بالأشهر */
 function buildSchedule(lease_id,start,end,annual,count,vat_pct=0){
   if(!isValidDate(start)||!isValidDate(end)) return [];
+  // الإيجار مُدخَل على أساس السنة: القسط = الإيجار السنوي ÷ عدد الدفعات،
+  // ويتكرّر بقيمة ثابتة كل دورة حتى نهاية العقد مهما امتدّت سنواته.
   const n=Math.max(1,Math.round(Number(count)||1));
-  const S=new Date(start), E=new Date(end);
-
-  // مدة العقد بالأشهر (لا تُفترض سنة دائمًا)
-  let months=(E.getFullYear()-S.getFullYear())*12 + (E.getMonth()-S.getMonth());
-  if(E.getDate() >= S.getDate()-1) months+=1;
-  months=Math.max(1,months);
-
-  // الإجمالي عن كامل المدة، مقسّمًا على عدد الدفعات المطلوب
-  const total=Math.round(Number(annual||0)*months/12);
-  const each=Math.round(total/n);
-  const stepM=months/n;                       // الفاصل الزمني بين الأقساط
-
-  const rows=[];
-  for(let i=0;i<n;i++){
-    const d=new Date(S);
-    d.setMonth(d.getMonth()+Math.round(stepM*i));
+  const each=Math.round(Number(annual||0)/n);
+  const stepM=Math.max(1,Math.round(12/n));
+  const S=new Date(start), E=new Date(end), rows=[];
+  const d=new Date(S);
+  let guard=0;
+  while(d<=E && guard++<600){
     const v=ymd(d); if(!v) break;
     rows.push({lease_id,due_date:v,amount:each,status:'pending',
                vat_amount:Math.round(each*Number(vat_pct||0)/100)});
-  }
-  // فرق التقريب يُحمَّل على آخر قسط ليطابق المجموع الإجمالي بالضبط
-  if(rows.length){
-    const diff=total-rows.reduce((a,r)=>a+r.amount,0);
-    if(diff){ const L=rows[rows.length-1]; L.amount+=diff; L.vat_amount=Math.round(L.amount*Number(vat_pct||0)/100); }
+    d.setMonth(d.getMonth()+stepM);
   }
   return rows;
+}
+
+/** عدد الأقساط المتوقّع لعقد وفق مدته ودوريته */
+function expectedCount(l){
+  if(!isValidDate(l.start_date)||!isValidDate(l.end_date)) return 0;
+  return buildSchedule('x',l.start_date,l.end_date,Number(l.annual_rent||0),Number(l.installments||1)).length;
 }
 
 /** إعادة بناء جدول دفعات عقد من بياناته المحفوظة — أداة إصلاح مباشرة */
@@ -2128,9 +2123,9 @@ function openLeaseEdit(id){
       <div><label class="eyebrow block mb-2">بداية العقد</label><input id="le_s" type="date" class="field" value="${l.start_date||''}"></div>
       <div><label class="eyebrow block mb-2">نهاية العقد</label><input id="le_e" type="date" class="field" value="${l.end_date||''}"></div>
       <div><label class="eyebrow block mb-2">الإيجار السنوي (ر.س)</label><input id="le_r" type="number" class="field" value="${l.annual_rent??''}"></div>
-      <div><label class="eyebrow block mb-2">عدد دفعات العقد</label>
+      <div><label class="eyebrow block mb-2">عدد الدفعات في السنة</label>
         <select id="le_c" class="field">
-          ${[1,2,3,4,6,12].map(n=>`<option value="${n}" ${Number(l.installments)===n?'selected':''}>${n===1?'دفعة واحدة':n+' دفعات'}</option>`).join('')}
+          ${[1,2,3,4,6,12].map(n=>`<option value="${n}" ${Number(l.installments)===n?'selected':''}>${n===1?'دفعة واحدة سنويًا':n+' دفعات سنويًا'}</option>`).join('')}
         </select></div>
       <div class="col-span-2"><label class="eyebrow block mb-2">حالة العقد</label>
         <select id="le_st" class="field">
@@ -2169,7 +2164,7 @@ function leaseImpact(id){
   box.innerHTML = rows.length
     ? `<span class="text-teal-700 font-semibold">سيُعاد توليد الجدول:</span>
        <span class="block mt-1">من <b class="num">${current}</b> إلى <b class="num">${rows.length}</b> دفعة ×
-       <b class="num">${money(rows[0].amount)}</b> ر.س — أول استحقاق <span class="num">${rows[0].due_date}</span></span>`
+       <b class="num">${money(rows[0].amount)}</b> ر.س (كل <b class="num">${Math.round(12/(count||1))}</b> شهر) — أول استحقاق <span class="num">${rows[0].due_date}</span></span>`
     : `<span class="text-rose-600">أكمل التواريخ والإيجار لعرض الجدول الجديد.</span>`;
 }
 
