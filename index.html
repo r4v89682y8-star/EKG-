@@ -144,7 +144,7 @@ details[open] summary::before{ content:'−'; transform:rotate(180deg); }
   const SUPABASE_KEY = "sb_publishable_26WQJ1wSFyt3eNDdkj2yyw_RwYDK6yf";
   const BRAND = "أصول";              // ← اسم النظام، غيّره من هنا
   const BRAND_SUB = "إدارة وتشغيل وصيانة الأصول العقارية";
-  const VERSION = "v29";                // للتأكد من أن النسخة المنشورة محدّثة
+  const VERSION = "v30";                // للتأكد من أن النسخة المنشورة محدّثة
 </script>
 
 <div id="app"></div>
@@ -970,6 +970,136 @@ async function delPayout(id){
   closeModal(); buildingsView();
 }
 
+
+/* ═══ مدقّق العقود: يفحص كل جداول الدفعات ويعيد بناء المخالف منها ═══ */
+
+/** مقارنة عقد بجدوله الفعلي */
+function auditLease(l){
+  const want = buildSchedule(l.id, l.start_date, l.end_date,
+                 Number(l.annual_rent||0), Number(l.installments||1), Number(l.vat_pct||0));
+  const have = payments.filter(p=>p.lease_id===l.id).sort((a,b)=>a.due_date.localeCompare(b.due_date));
+  const wantSum = want.reduce((a,r)=>a+r.amount,0);
+  const haveSum = have.reduce((a,r)=>a+Number(r.amount||0),0);
+  const collected = have.reduce((a,r)=>a+paidOf(r),0);
+
+  const issues=[];
+  if(want.length!==have.length) issues.push(`العدد ${have.length} بدل ${want.length}`);
+  else {
+    const amtBad = want.some((w,i)=>Math.abs(w.amount-Number(have[i].amount||0))>1);
+    const dateBad= want.some((w,i)=>w.due_date!==have[i].due_date);
+    if(amtBad)  issues.push(`قيمة القسط ${money(Number(have[0]?.amount||0))} بدل ${money(want[0]?.amount||0)}`);
+    if(dateBad) issues.push('تواريخ الاستحقاق مختلفة');
+  }
+  return { lease:l, want, have, wantSum, haveSum, collected, issues, ok:issues.length===0 };
+}
+
+/** إعادة بناء جدول عقد مع الحفاظ على ما قُبض فعلًا */
+async function reprocessLease(l){
+  const a = auditLease(l);
+  if(a.ok) return {changed:false};
+
+  // نُبقي المقبوض: يُنقل إلى الأقساط الجديدة بالترتيب حتى ينفد
+  let carry = a.collected;
+  const rows = a.want.map(r=>{
+    const due = r.amount + Number(r.vat_amount||0);
+    const take = Math.min(carry, due);
+    carry -= take;
+    return { ...r,
+      paid_amount: take>0 ? take : null,
+      status: take>=due-1 ? 'paid' : 'pending',
+      paid_at: take>0 ? new Date(r.due_date+'T12:00:00').toISOString() : null,
+      notes: take>0 ? 'مُرحّل من جدول سابق' : null };
+  });
+
+  await db.from('payments').delete().eq('lease_id', l.id);
+  const {error} = await db.from('payments').insert(rows);
+  if(error) throw new Error(error.message);
+  return {changed:true, from:a.have.length, to:rows.length, kept:a.collected-carry, leftover:carry};
+}
+
+async function openAuditor(){
+  const w=document.createElement('div'); w.id='modal'; w.className='fixed inset-0 z-40 grid place-items-center p-4 overflow-y-auto';
+  w.innerHTML=`<div class="absolute inset-0" style="background:color-mix(in srgb,var(--ink-900) 45%,transparent)" onclick="closeModal()"></div>
+    <div class="card relative w-full max-w-2xl p-6 fade my-8" id="audit"><p class="text-ink-500">جارٍ فحص العقود…</p></div>`;
+  document.body.appendChild(w);
+  await Promise.all([load.leases(), load.payments(), load.units()]);
+  renderAudit();
+}
+
+function renderAudit(){
+  const box=document.getElementById('audit'); if(box.dataset.ghost) return;
+  const live = leases.filter(l=>l.status==='active'||l.status==='renewed'||l.status==='draft');
+  const res  = live.map(auditLease);
+  const bad  = res.filter(r=>!r.ok);
+
+  box.innerHTML=`
+    <h3 class="font-bold text-xl">مدقّق جداول الدفعات</h3>
+    <p class="text-ink-500 text-sm mt-1 mb-5">يقارن كل عقد بجدوله الفعلي، ويعيد بناء المخالف مع الحفاظ على المقبوض.</p>
+
+    <div class="grid grid-cols-3 gap-2 mb-5">
+      <div class="text-center p-3 rounded-xl" style="background:var(--paper-100)">
+        <p class="text-2xl font-bold display"><span class="num">${res.length}</span></p>
+        <p class="text-xs text-ink-500 mt-0.5">عقد مفحوص</p></div>
+      <div class="text-center p-3 rounded-xl" style="background:var(--brand-100)">
+        <p class="text-2xl font-bold display text-teal-700"><span class="num">${res.length-bad.length}</span></p>
+        <p class="text-xs text-ink-500 mt-0.5">مطابق</p></div>
+      <div class="text-center p-3 rounded-xl" style="background:${bad.length?'var(--red-100)':'var(--paper-100)'}">
+        <p class="text-2xl font-bold display ${bad.length?'text-rose-600':''}"><span class="num">${bad.length}</span></p>
+        <p class="text-xs text-ink-500 mt-0.5">مخالف</p></div>
+    </div>
+
+    ${bad.length?`
+      <div class="max-h-72 overflow-y-auto mb-5">
+        ${bad.map(r=>`<div class="border-b py-2.5" style="border-color:var(--paper-100)">
+          <div class="flex justify-between gap-3">
+            <div class="min-w-0">
+              <p class="font-semibold text-sm">${esc(r.lease.tenants?.full_name||'—')}
+                <span class="text-ink-500 font-normal">· ${esc(r.lease.units?.building_name||'')} وحدة ${esc(r.lease.units?.unit_number||'')}</span></p>
+              <p class="text-xs text-rose-600 mt-0.5">${r.issues.join(' · ')}</p>
+              <p class="text-xs text-ink-500 mt-0.5">
+                <span class="num">${money(r.lease.annual_rent)}</span> ر.س/سنة ·
+                <span class="num">${r.lease.installments}</span> دفعة/سنة ·
+                <span class="num">${r.lease.start_date}</span> ← <span class="num">${r.lease.end_date}</span></p>
+            </div>
+            <div class="text-left shrink-0 text-xs">
+              <p class="text-ink-500">الصحيح</p>
+              <p class="font-bold"><span class="num">${r.want.length}</span> × <span class="num">${money(r.want[0]?.amount||0)}</span></p>
+              ${r.collected?`<p class="text-teal-700 mt-1">مقبوض <span class="num">${money(r.collected)}</span></p>`:''}
+            </div>
+          </div>
+        </div>`).join('')}
+      </div>
+      <p class="text-xs text-ink-500 mb-4">إعادة البناء تحذف الجداول المخالفة وتنشئها صحيحة، وتُرحّل المبالغ المقبوضة على الأقساط الجديدة بالترتيب. لا يُمسّ أي عقد مطابق.</p>
+      <div class="flex gap-2">
+        <button onclick="runReprocess()" class="btn-primary flex-1">إعادة بناء <span class="num">${bad.length}</span> جدول</button>
+        <button onclick="closeModal()" class="btn-ghost px-4">إغلاق</button>
+      </div>`
+    :`<p class="text-center text-teal-700 font-semibold py-6">كل الجداول مطابقة لشروط عقودها.</p>
+      <button onclick="closeModal()" class="btn-primary w-full">إغلاق</button>`}
+    <div id="audit_log" class="mt-4 text-sm"></div>`;
+}
+
+async function runReprocess(){
+  const box=document.getElementById('audit_log');
+  const live = leases.filter(l=>l.status==='active'||l.status==='renewed'||l.status==='draft');
+  const bad  = live.map(auditLease).filter(r=>!r.ok);
+  if(!bad.length) return;
+  if(!confirm(`إعادة بناء ${bad.length} جدول دفعات. المبالغ المقبوضة ستُرحّل. متابعة؟`)) return;
+
+  box.innerHTML='<p class="text-ink-500">جارٍ إعادة البناء…</p>';
+  let done=0, failed=[], carried=0;
+  for(const r of bad){
+    try{ const out=await reprocessLease(r.lease); if(out.changed){ done++; carried+=out.leftover||0; } }
+    catch(e){ failed.push(esc(r.lease.tenants?.full_name||r.lease.id)); }
+  }
+  await logAction('reprocess','lease','',`${done} جدول`);
+  await Promise.all([load.leases(), load.payments()]);
+  box.innerHTML = `<p class="text-teal-700 font-semibold">أُعيد بناء <span class="num">${done}</span> جدول بنجاح.</p>`
+    + (carried>0?`<p class="text-amber-600 text-xs mt-1">تبقّى <span class="num">${money(carried)}</span> ر.س من مبالغ مقبوضة تتجاوز الجداول الجديدة — راجعها يدويًا.</p>`:'')
+    + (failed.length?`<p class="text-rose-600 text-xs mt-1">تعذّر: ${failed.join('، ')}</p>`:'');
+  renderAudit();
+}
+
 /* ───── المباني: تعريف الملكية وفصل الذمم ───── */
 async function buildingsView(){
   const m=document.getElementById('main');
@@ -1216,7 +1346,7 @@ async function collectionView(){
     <div><h1 class="text-2xl font-bold">التحصيل</h1><p class="text-ink-500 mt-1">${periodLabel()} · دفعات الإيجار المستحقة والمسددة</p></div>
     ${periodPicker()}
   </div>`;
-  await load.payments();
+  await Promise.all([load.payments(),load.leases()]);
   const t=today();
   const scope=payments.filter(p=>inPeriod(p.due_date));      // كل سنة (أو شهر) على حدة
   const od=scope.filter(p=>!isSettled(p)&&p.due_date< t);      // متأخرة (بالمتبقّي)
@@ -1229,6 +1359,11 @@ async function collectionView(){
       ${stat('مستحق قادم',sumRest(up),up.length+' دفعة','amber-600')}
       ${stat('إجمالي التحصيل',sumPaid(scope),pd.length+' سند قبض · '+periodLabel(),'teal-700')}
     </div>
+    ${(()=>{ const bad=leases.filter(l=>(l.status==='active'||l.status==='renewed')&&!auditLease(l).ok).length;
+      return bad?`<div class="card p-4 mb-5 flex flex-wrap items-center justify-between gap-3" style="border-color:var(--gold-600)">
+        <p class="text-sm"><b class="text-amber-600">تنبيه:</b> <span class="num">${bad}</span> عقد جدول دفعاته لا يطابق شروطه — الأرقام أعلاه قد تكون غير دقيقة.</p>
+        <button onclick="openAuditor()" class="btn-ghost text-amber-600 border-amber-100" ${canEdit()?'':'style="display:none"'}>فحص وإصلاح</button>
+      </div>`:''; })()}
     <div class="flex gap-2 mb-4 overflow-x-auto pb-1">
       ${chip('due','المستحقة',od.length+up.length)}${chip('overdue','المتأخرة',od.length)}
       ${chip('paid','المسددة',pd.length)}${chip('all','الكل',scope.length)}
@@ -2467,6 +2602,12 @@ async function settingsView(){
           </div>
         </div>`).join('')||'<p class="text-sm text-ink-300">لا حسابات مضافة — أي بريد غير مضاف هنا يدخل كمشغّل افتراضيًا.</p>'}
       </div>
+    </div>
+
+    <div class="card p-5" ${canEdit()?'':'style="display:none"'}>
+      <h2 class="font-bold text-lg mb-1">مدقّق جداول الدفعات</h2>
+      <p class="text-sm text-ink-500 mb-4">يفحص كل العقود ويعيد بناء أي جدول لا يطابق شروط عقده.</p>
+      <button onclick="openAuditor()" class="btn-primary">فحص كل العقود</button>
     </div>
 
     <div class="card p-5" ${canEdit()?'':'style="display:none"'}>
