@@ -144,7 +144,7 @@ details[open] summary::before{ content:'−'; transform:rotate(180deg); }
   const SUPABASE_KEY = "sb_publishable_26WQJ1wSFyt3eNDdkj2yyw_RwYDK6yf";
   const BRAND = "أصول";              // ← اسم النظام، غيّره من هنا
   const BRAND_SUB = "إدارة وتشغيل وصيانة الأصول العقارية";
-  const VERSION = "v25";                // للتأكد من أن النسخة المنشورة محدّثة
+  const VERSION = "v26";                // للتأكد من أن النسخة المنشورة محدّثة
 </script>
 
 <div id="app"></div>
@@ -603,8 +603,19 @@ const load = {
   expenses:async ()=>{ expenses=(await db.from('expenses').select('*').order('expense_date',{ascending:false})).data||[]; },
   readings:async ()=>{ readings=(await db.from('meter_readings').select('*').order('reading_date',{ascending:false})).data||[]; },
 };
-const sumPaid = a => a.reduce((s,p)=>s+Number(p.paid_amount??p.amount),0);
-const sumAmt  = a => a.reduce((s,p)=>s+Number(p.amount)+Number(p.vat_amount||0)-Number(p.paid_amount||0),0);
+/* ── الأساس المحاسبي: ثلاث دوال لا يُحسب المال إلا بها ──
+   dueOf   : كامل المستحق على الدفعة (الإيجار + الضريبة)
+   paidOf  : ما قُبض فعلًا منها (يشمل السداد الجزئي)
+   restOf  : المتبقّي عليها                                        */
+const dueOf  = p => Number(p.amount||0) + Number(p.vat_amount||0);
+const paidOf = p => Number(p.paid_amount!=null ? p.paid_amount : (p.status==='paid' ? dueOf(p) : 0));
+const restOf = p => Math.max(0, dueOf(p) - paidOf(p));
+
+const sumDue  = a => a.reduce((s,p)=>s+dueOf(p),0);    // المتعاقد
+const sumPaid = a => a.reduce((s,p)=>s+paidOf(p),0);   // المحصّل فعلًا
+const sumRest = a => a.reduce((s,p)=>s+restOf(p),0);   // المتبقّي
+const sumAmt  = sumRest;                               // توافق مع النداءات القديمة
+const isSettled = p => restOf(p) <= 1;                 // مسدّدة (بهامش تقريب ريال)
 
 /* ───── لوحة المالك: فصل الذمم بين ما نملكه وما نديره للغير ───── */
 async function dashView(){
@@ -652,12 +663,14 @@ function bookFor(name){
   const ids=units.filter(u=>u.building_name===name).map(u=>u.id);
   const p=payments.filter(x=>ids.includes(x.leases?.unit_id)&&inPeriod(x.due_date));
   const e=expenses.filter(x=>x.building_name===name&&inPeriod(x.expense_date));
-  const collected=sumPaid(p.filter(x=>x.status==='paid'));
+  const collected=sumPaid(p);                                   // يشمل السداد الجزئي
   const exp=e.reduce((s,x)=>s+Number(x.amount),0);
   const fee=b.ownership==='managed'?Math.round(collected*Number(b.management_fee_pct||0)/100):0;
   return { name, ownership:b.ownership, owner_name:b.owner_name, pct:Number(b.management_fee_pct||0),
     unitsTotal:ids.length, occupied:units.filter(u=>u.building_name===name&&u.status==='occupied').length,
-    contracted:sumAmt(p), collected, overdue:sumAmt(p.filter(x=>x.status==='pending'&&x.due_date<today())),
+    contracted:sumDue(p),                                       // كامل المتعاقد بلا خصم
+    collected,
+    overdue:sumRest(p.filter(x=>!isSettled(x)&&x.due_date<today())),
     exp, fee, net:collected-exp, dueOwner:collected-exp-fee };
 }
 
@@ -1102,9 +1115,9 @@ async function financeView(){
   const rows = MONTHS.map((label,i)=>{
     const key=`${YR}-${String(i+1).padStart(2,'0')}`;
     const p=payments.filter(x=>x.due_date.startsWith(key));
-    const rev=sumPaid(p.filter(x=>x.status==='paid'));
+    const rev=sumPaid(p);
     const exp=expenses.filter(e=>e.expense_date.startsWith(key)).reduce((s,e)=>s+Number(e.amount),0);
-    return { label, expected:sumAmt(p), rev, exp, net:rev-exp };
+    return { label, expected:sumDue(p), rev, exp, net:rev-exp };
   });
   const T = rows.reduce((a,r)=>({expected:a.expected+r.expected,rev:a.rev+r.rev,exp:a.exp+r.exp,net:a.net+r.net}),{expected:0,rev:0,exp:0,net:0});
 
@@ -1206,15 +1219,15 @@ async function collectionView(){
   await load.payments();
   const t=today();
   const scope=payments.filter(p=>inPeriod(p.due_date));      // كل سنة (أو شهر) على حدة
-  const od=scope.filter(p=>p.status==='pending'&&p.due_date<t);
-  const up=scope.filter(p=>p.status==='pending'&&p.due_date>=t);
-  const pd=scope.filter(p=>p.status==='paid');
+  const od=scope.filter(p=>!isSettled(p)&&p.due_date< t);      // متأخرة (بالمتبقّي)
+  const up=scope.filter(p=>!isSettled(p)&&p.due_date>=t);      // قادمة
+  const pd=scope.filter(p=>paidOf(p)>0);                       // فيها قبض (كلي أو جزئي)
   m.innerHTML+=`
   <div class="fade">
     <div class="grid grid-cols-2 lg:grid-cols-3 gap-3 mb-6">
-      ${stat('المتأخرات',sumAmt(od),od.length+' دفعة','rose-600')}
-      ${stat('مستحق قادم',sumAmt(up),up.length+' دفعة','amber-600')}
-      ${stat('إجمالي التحصيل',sumPaid(pd),pd.length+' سند قبض · '+periodLabel(),'teal-700')}
+      ${stat('المتأخرات',sumRest(od),od.length+' دفعة','rose-600')}
+      ${stat('مستحق قادم',sumRest(up),up.length+' دفعة','amber-600')}
+      ${stat('إجمالي التحصيل',sumPaid(scope),pd.length+' سند قبض · '+periodLabel(),'teal-700')}
     </div>
     <div class="flex gap-2 mb-4 overflow-x-auto pb-1">
       ${chip('due','المستحقة',od.length+up.length)}${chip('overdue','المتأخرة',od.length)}
@@ -1231,25 +1244,25 @@ function renderPayments(){
   const t=today();
   const scope=payments.filter(p=>inPeriod(p.due_date));
   let rows=scope;
-  if(payFilter==='due') rows=scope.filter(p=>p.status==='pending');
-  if(payFilter==='overdue') rows=scope.filter(p=>p.status==='pending'&&p.due_date<t);
-  if(payFilter==='paid') rows=scope.filter(p=>p.status==='paid');
+  if(payFilter==='due')     rows=scope.filter(p=>!isSettled(p));
+  if(payFilter==='overdue') rows=scope.filter(p=>!isSettled(p)&&p.due_date<t);
+  if(payFilter==='paid')    rows=scope.filter(p=>isSettled(p));
   const box=document.getElementById('plist');
   if(!rows.length){ box.innerHTML=empty('لا دفعات في هذا التصنيف. أنشئ عقدًا ليُولَّد جدول دفعاته تلقائيًا.'); return; }
   box.innerHTML=rows.map(p=>{
-    const late=p.status==='pending'&&p.due_date<t, days=Math.round((new Date(t)-new Date(p.due_date))/864e5), l=p.leases||{};
+    const late=!isSettled(p)&&p.due_date<t, days=Math.round((new Date(t)-new Date(p.due_date))/864e5), l=p.leases||{};
     return `<div class="card p-4 flex items-center justify-between gap-3">
       <div class="min-w-0">
         <p class="font-semibold truncate">${esc(l.tenants?.full_name||'—')}</p>
         <p class="text-sm text-ink-500 truncate">${esc(l.units?.building_name||'')} · وحدة ${esc(l.units?.unit_number||'')}</p>
         <p class="text-xs mt-1 ${late?'text-rose-600 font-semibold':'text-ink-500'}">الاستحقاق <span class="num">${p.due_date}</span>${late?` · متأخرة <span class="num">${days}</span> يوم`:''}</p>
-        ${Number(p.paid_amount)&&p.status==='pending'?`<p class="text-xs text-amber-600 font-semibold mt-0.5">سُدّد <span class="num">${money(p.paid_amount)}</span> · متبقٍّ <span class="num">${money(Number(p.amount)+Number(p.vat_amount||0)-Number(p.paid_amount))}</span></p>`:''}
+        ${(paidOf(p)>0&&!isSettled(p))?`<p class="text-xs text-amber-600 font-semibold mt-0.5">سُدّد <span class="num">${money(paidOf(p))}</span> · متبقٍّ <span class="num">${money(restOf(p))}</span></p>`:''}
       </div>
       <div class="text-left shrink-0">
-        <p class="font-bold"><span class="num">${money(Number(p.amount)+Number(p.vat_amount||0))}</span> <span class="text-xs text-ink-500">ر.س</span></p>
+        <p class="font-bold"><span class="num">${money(dueOf(p))}</span> <span class="text-xs text-ink-500">ر.س</span></p>
         ${Number(p.vat_amount)?`<p class="text-[.7rem] text-ink-500">شامل ضريبة <span class="num">${money(p.vat_amount)}</span></p>`:''}
-        ${p.status==='paid'?`<p class="text-xs text-teal-700 mt-1">سُددت <span class="num">${(p.paid_at||'').slice(0,10)}</span></p>`
-          :`<button onclick="openReceipt('${p.id}')" class="btn-ghost mt-1.5 text-teal-700 border-teal-100">تسجيل دفعة</button>`}
+        ${isSettled(p)?`<p class="text-xs text-teal-700 mt-1">سُددت <span class="num">${(p.paid_at||'').slice(0,10)}</span></p>`
+          :`<button onclick="openReceipt('${p.id}')" class="btn-ghost mt-1.5 text-teal-700 border-teal-100">${paidOf(p)>0?'استكمال السداد':'تسجيل دفعة'}</button>`}
       </div>
     </div>`;}).join('');
 }
@@ -1260,7 +1273,8 @@ function openReceipt(id){
   <div class="card relative w-full max-w-sm p-6 fade">
     <h3 class="font-bold text-xl">تسجيل دفعة</h3>
     <p class="text-ink-500 text-sm mt-1 mb-5">${esc(p.leases?.tenants?.full_name||'')} · استحقاق <span class="num">${p.due_date}</span></p>
-    <label class="eyebrow block mb-2">المبلغ المستلم (ر.س)</label><input id="r_amt" type="number" class="field mb-4" value="${p.amount}">
+    <label class="eyebrow block mb-2">المبلغ المستلم (ر.س)</label><input id="r_amt" type="number" class="field mb-1.5" value="${restOf(p)}">
+    <p class="text-xs text-ink-500 mb-4">كامل القسط <span class="num">${money(dueOf(p))}</span>${paidOf(p)>0?` · سبق سداد <span class="num">${money(paidOf(p))}</span>`:''}</p>
     <label class="eyebrow block mb-2">تاريخ الاستلام</label><input id="r_date" type="date" class="field mb-4" value="${today()}">
     <label class="eyebrow block mb-2">طريقة الدفع</label>
     <select id="r_method" class="field mb-4"><option value="transfer">تحويل بنكي</option><option value="cash">نقدًا</option><option value="cheque">شيك</option><option value="pos">شبكة</option></select>
@@ -1274,8 +1288,8 @@ const closeModal=()=>document.getElementById('modal')?.remove();
 async function saveReceipt(id){
   const amt=Number(r_amt.value), date=r_date.value, err=document.getElementById('r_err');
   if(!amt||amt<=0||!date){ err.textContent='أدخل مبلغًا صحيحًا وتاريخ الاستلام.'; err.classList.remove('hidden'); return; }
-  const p=payments.find(x=>x.id===id), full=Number(p.amount)+Number(p.vat_amount||0);
-  const prior=Number(p.paid_amount||0), total=prior+amt;
+  const p=payments.find(x=>x.id===id), full=dueOf(p);
+  const prior=paidOf(p), total=prior+amt;
   if(total>full+1 && !confirm(`المبلغ يتجاوز المستحق (${money(full)} ر.س). المتابعة؟`)) return;
   const partial = total < full-1;                    // سداد جزئي: يبقى مفتوحًا بالفرق
   const {error}=await db.from('payments').update({
@@ -2044,9 +2058,9 @@ function offerBackfill(leaseId,count){
 }
 async function runBackfill(leaseId){
   if(!document.getElementById('bf_all').checked){ closeModal(); return; }
-  const {data}=await db.from('payments').select('id,due_date,amount').eq('lease_id',leaseId).eq('status','pending').lt('due_date',today());
+  const {data}=await db.from('payments').select('id,due_date,amount,vat_amount,paid_amount').eq('lease_id',leaseId).lt('due_date',today());
   for(const p of (data||[])){
-    await db.from('payments').update({status:'paid',paid_amount:p.amount,
+    await db.from('payments').update({status:'paid',paid_amount:dueOf(p),
       paid_at:new Date(p.due_date+'T12:00:00').toISOString(),   // تاريخ السداد = تاريخ الاستحقاق الأصلي
       payment_method:'transfer',receipt_number:null,notes:'تسوية عقد سابق'}).eq('id',p.id);
   }
@@ -2090,7 +2104,7 @@ function buildSchedule(lease_id,start,end,annual,count,vat_pct=0){
 async function rebuildSchedule(id){
   const l=leases.find(x=>x.id===id);
   const mine=payments.filter(p=>p.lease_id===id);
-  const paid=mine.filter(p=>p.status==='paid'||Number(p.paid_amount)>0);
+  const paid=mine.filter(p=>paidOf(p)>0);
   const rows=buildSchedule(id,l.start_date,l.end_date,Number(l.annual_rent||0),Number(l.installments||1),Number(l.vat_pct||0));
   if(!confirm(`إعادة بناء جدول الدفعات:\nمن ${mine.length} دفعة إلى ${rows.length} دفعة × ${money(rows[0]?.amount||0)} ر.س`
      + (paid.length?`\n\nتنبيه: سيُحذف سداد ${paid.length} دفعة.`:'') + `\n\nمتابعة؟`)) return;
@@ -2104,7 +2118,7 @@ async function rebuildSchedule(id){
 
 function openLeaseEdit(id){
   const l=leases.find(x=>x.id===id);
-  const paid=payments.filter(p=>p.lease_id===id&&(p.status==='paid'||Number(p.paid_amount)>0)).length;
+  const paid=payments.filter(p=>p.lease_id===id&&paidOf(p)>0).length;
   const w=document.createElement('div'); w.id='modal'; w.className='fixed inset-0 z-40 grid place-items-center p-4 overflow-y-auto';
   w.innerHTML=`<div class="absolute inset-0" style="background:color-mix(in srgb,var(--ink-900) 45%,transparent)" onclick="closeModal()"></div>
   <div class="card relative w-full max-w-md p-6 fade my-8">
@@ -2170,7 +2184,7 @@ async function saveLeaseEdit(id,unitId){
 
   const schedChanged = start_date!==l.start_date || end_date!==l.end_date
         || annual!==Number(l.annual_rent||0) || count!==Number(l.installments||1);
-  const paid = payments.filter(p=>p.lease_id===id&&(p.status==='paid'||Number(p.paid_amount)>0));
+  const paid = payments.filter(p=>p.lease_id===id&&paidOf(p)>0);
 
   if(schedChanged && !confirm(paid.length
       ? `سيُعاد توليد جدول الدفعات ليطابق العقد.\n\nتنبيه: سيُحذف سداد ${paid.length} دفعة.\nمتابعة؟`
