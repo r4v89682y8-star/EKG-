@@ -144,7 +144,7 @@ details[open] summary::before{ content:'−'; transform:rotate(180deg); }
   const SUPABASE_KEY = "sb_publishable_26WQJ1wSFyt3eNDdkj2yyw_RwYDK6yf";
   const BRAND = "أصول";              // ← اسم النظام، غيّره من هنا
   const BRAND_SUB = "إدارة وتشغيل وصيانة الأصول العقارية";
-  const VERSION = "v30";                // للتأكد من أن النسخة المنشورة محدّثة
+  const VERSION = "v34";                // للتأكد من أن النسخة المنشورة محدّثة
 </script>
 
 <div id="app"></div>
@@ -259,8 +259,11 @@ function esc(v){
   if(v==null) return '';
   return String(v).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
-/* تهريب للاستخدام داخل سمات onclick */
-const escJs = v => esc(String(v??'')).replace(/\\/g,'\\\\');
+/* تهريب للاستخدام داخل سمات onclick.
+   المتصفّح يفكّ ترميز HTML للسمة قبل أن يقرأ الشيفرة، فلا يكفي esc وحده:
+   ' يعود اقتباسًا حقيقيًا فيكسر النص ويعطّل الزر. لذا نُهرّب سلسلة JS أولًا
+   — الشرطة المائلة قبل غيرها حتى لا تتضاعف الشرطات التي نضيفها بعدها — ثم HTML. */
+const escJs = v => esc(String(v??'').replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/\r?\n/g,'\\n'));
 
 
 const DICT = {"لوحة المالك": "Owner Dashboard", "التحصيل": "Collection", "المباني": "Buildings", "المالية": "Finance", "الصيانة": "Maintenance", "العمال والرواتب": "Staff & Payroll", "العقود": "Leases", "الوحدات": "Units", "المستأجرون": "Tenants", "الإعدادات": "Settings", "تسجيل الخروج": "Sign out", "خروج": "Exit", "دخول": "Sign in", "تسجيل الدخول": "Sign in", "القائمة": "Menu", "أصول": "Osool", "حوكمة وتشغيل الأصول العقارية": "Real Estate Asset Governance & Operations", "إدارة وتشغيل وصيانة الأصول العقارية": "Property Management, Operations & Maintenance", "البريد الإلكتروني": "Email", "كلمة السر": "Password", "إلغاء": "Cancel", "إغلاق": "Close", "حفظ": "Save", "تعديل": "Edit", "حذف": "Delete", "إضافة": "Add", "تحليل": "Analyse", "تنفيذ": "Run", "تخطّي": "Skip", "الإجمالي": "Total", "الصافي": "Net", "التاريخ": "Date", "الحالة": "Status", "المبلغ": "Amount", "السبب": "Reason", "الوصف": "Description", "ملاحظات": "Notes", "اختياري": "Optional", "جارٍ التحميل…": "Loading…", "جارٍ الحفظ…": "Saving…", "جارٍ الفحص…": "Checking…", "سنوي": "Yearly", "شهري": "Monthly", "الكل": "All", "اكتب هنا…": "Type here…", "تشخيص": "Diagnose", "— اختر —": "— Select —", "غير مخصص": "Unassigned", "الإيراد المتعاقد": "Contracted Revenue", "المحصّل": "Collected", "المتأخرات": "Overdue", "صافي التشغيل": "Operating Net", "إجمالي المحصّل": "Total Collected", "إجمالي المتأخرات": "Total Overdue", "إجمالي المصروفات": "Total Expenses", "أتعاب الإدارة": "Management Fee", "الإشغال": "Occupancy", "إجمالي التحصيل": "Total Collection", "مستحق قادم": "Upcoming Due", "كل المباني": "All buildings", "تشغيل وصيانة ورواتب": "Operations, maintenance & payroll", "من المباني المُدارة": "From managed buildings", "مستحقة ولم تُسدد": "Due and unpaid", "كامل السنة": "Full year", "محصّل − مصروفات": "Collected − expenses", "مبانٍ مملوكة": "Owned Buildings", "مبانٍ تحت الإدارة": "Managed Buildings", "مملوك": "Owned", "تحت الإدارة": "Managed", "مملوك للشركة": "Company-owned", "تحت الإدارة (ملك الغير)": "Managed (third-party owned)", "المبنى": "Building", "اسم المبنى": "Building name", "نوع الملكية": "Ownership", "اسم المالك": "Owner name", "كشف الحساب": "Statement", "كشف": "Statement", "تسوية المالك": "Owner Settlement", "تسجيل مبنى": "Register Building", "حفظ المبنى": "Save building", "تعديل المبنى": "Edit Building", "تسجيل": "Register", "نسبة أتعاب الإدارة (%)": "Management fee (%)", "بداية عقد الإدارة": "Management contract start", "نهايته": "End", "المستحق للمالك": "Due to Owner", "المسدَّد له": "Paid to owner", "المتبقّي": "Remaining", "المبلغ المحوَّل (ر.س)": "Transferred amount (SAR)", "مرجع التحويل": "Transfer reference", "تسجيل التحويل": "Record transfer", "سجل التحويلات": "Transfer log", "مبنى مملوك": "Owned building", "تفاصيل المصروفات": "Expense details", "الإيراد المحصّل": "Collected revenue", "متأخرات لم تُحصّل": "Uncollected arrears", "وحدة جديدة": "New Unit", "رقم الوحدة": "Unit number", "المساحة (م²)": "Area (m²)", "الإيجار السنوي (ر.س)": "Annual rent (SAR)", "نوع الوحدة": "Unit type", "سكني (معفى من الضريبة)": "Residential (VAT exempt)", "تجاري (خاضع ١٥٪)": "Commercial (15% VAT)", "رقم عداد الكهرباء": "Electricity meter no.", "رقم عداد المياه": "Water meter no.", "إضافة الوحدة": "Add unit", "تعديل بيانات الوحدة": "Edit Unit", "حذف الوحدة": "Delete unit", "تسجيل قراءة عداد": "Record Meter Reading", "نوع العداد": "Meter type", "كهرباء": "Electricity", "مياه": "Water", "القراءة": "Reading", "تاريخ القراءة": "Reading date", "قيمة الفاتورة (ر.س)": "Bill amount (SAR)", "حفظ القراءة": "Save reading", "شاغرة": "Vacant", "مؤجّرة": "Leased", "صيانة": "Maintenance", "تحت الصيانة": "Under maintenance", "تجاري": "Commercial", "نسبة الإشغال": "Occupancy rate", "لا قراءات": "No readings", "لم يُسجّل": "Not recorded", "حفظ التعديلات": "Save changes", "مستأجر جديد": "New Tenant", "الاسم الكامل": "Full name", "رقم الجوال": "Mobile number", "رقم الهوية": "ID number", "انتهاء الهوية / الإقامة": "ID / Iqama expiry", "إضافة المستأجر": "Add tenant", "قائمة سوداء": "Blacklist", "إعادة تفعيل": "Reinstate", "عقد ساري": "Active lease", "عقد سابق": "Past lease", "بلا عقد": "No lease", "نشط": "Active", "غير نشط": "Inactive", "تعديل بيانات المستأجر": "Edit Tenant", "حذف المستأجر": "Delete tenant", "ابحث بالاسم أو الجوال": "Search by name or mobile", "الهوية منتهية": "ID expired", "عقد جديد": "New Lease", "المستأجر": "Tenant", "اختر المستأجر": "Select tenant", "الوحدة الشاغرة": "Vacant unit", "اختر الوحدة": "Select unit", "بداية العقد": "Lease start", "نهاية العقد": "Lease end", "عدد الدفعات في السنة": "Installments per year", "عدد الدفعات": "Installments", "دفعة واحدة": "Single payment", "دفعتان": "Two payments", "٣ دفعات": "3 payments", "٤ دفعات": "4 payments", "١٢ دفعة (شهري)": "12 payments (monthly)", "رقم عقد إيجار": "Ejar contract no.", "التأمين المسترد (ر.س)": "Refundable deposit (SAR)", "غرامة التأخير (% من الدفعة)": "Late fee (% of installment)", "حفظ العقد وتفعيله": "Save & activate lease", "تعديل العقد": "Edit Lease", "حالة العقد": "Lease status", "ساري": "Active", "مجدد": "Renewed", "منتهي": "Terminated", "منتهي الصلاحية": "Expired", "مسودة": "Draft", "إنهاء": "Terminate", "حذف من السجل": "Delete record", "تجديد": "Renew", "تجديد العقد": "Renew Lease", "تنفيذ التجديد": "Confirm renewal", "بداية الفترة الجديدة": "New period start", "عقود تقترب من الانتهاء": "Leases Nearing Expiry", "تسوية الدفعات السابقة": "Settle Past Installments", "اعتبارها كلها مسددة": "Mark all as paid", "المستحقة": "Due", "المتأخرة": "Overdue", "المسددة": "Paid", "تسجيل دفعة": "Record Payment", "المبلغ المستلم (ر.س)": "Amount received (SAR)", "تاريخ الاستلام": "Received date", "طريقة الدفع": "Payment method", "تحويل بنكي": "Bank transfer", "نقدًا": "Cash", "شيك": "Cheque", "شبكة": "Card", "رقم السند / المرجع": "Receipt / reference no.", "حفظ السند": "Save receipt", "الاستحقاق": "Due", "سند قبض": "receipt", "دفعة": "installment", "تسجيل مصروف": "Record Expense", "البند": "Category", "رواتب": "Salaries", "نظافة": "Cleaning", "كهرباء ومياه": "Utilities", "رسوم حكومية": "Government fees", "أخرى": "Other", "حفظ المصروف": "Save expense", "آخر المصروفات": "Recent Expenses", "متوقع": "Expected", "مصروفات": "Expenses", "الشهر": "Month", "الخطة السنوية والأداء الفعلي": "Annual Plan vs Actual", "عام (غير مخصص)": "General (unassigned)", "من الصيانة": "From maintenance", "من الرواتب": "From payroll", "من العدادات": "From meters", "القيد السريع": "Quick Entry", "عمل صيانة جديد": "New Maintenance Job", "التكلفة التقديرية (ر.س)": "Estimated cost (SAR)", "التكلفة التقديرية": "Estimated cost", "المورد / الفني": "Vendor / technician", "حفظ عمل الصيانة": "Save job", "على من تُحمّل التكلفة؟": "Who bears the cost?", "المبنى كامل (مشترك)": "Whole building (shared)", "وحدات محددة": "Specific units", "الوحدات المستفيدة": "Units covered", "مطلوبة": "Requested", "قيد التنفيذ": "In progress", "منجزة": "Completed", "قيد نهائي": "Post final", "إرجاع لقيد التنفيذ": "Reopen", "إضافة مبلغ": "Add amount", "إضافة مبلغ على العمل": "Add Amount to Job", "حركات التكلفة": "Cost movements", "حذف السجل": "Delete record", "تكلفة الصيانة": "Maintenance cost", "أعمال مفتوحة": "Open jobs", "الأعلى تكلفة": "Highest cost", "تعديل عمل الصيانة": "Edit Maintenance Job", "بحاجة متابعة": "Needs follow-up", "لا شيء معلّق": "Nothing pending", "دينمو / مضخة": "Pump / motor", "سخان": "Water heater", "مصعد": "Elevator", "سباكة": "Plumbing", "تكييف": "HVAC", "دهان وترميم": "Painting & repairs", "مشترك": "Shared", "إضافة عامل": "Add Employee", "الوظيفة": "Role", "الراتب الشهري (ر.س)": "Monthly salary (SAR)", "تاريخ المباشرة": "Start date", "إضافة العامل": "Add employee", "إنهاء الخدمة": "End service", "خارج الخدمة": "Inactive", "على رأس العمل": "Active", "الرواتب الشهرية": "Monthly Payroll", "الرواتب السنوية": "Annual Payroll", "سجل صرف الرواتب": "Payroll History", "إلغاء الصرف": "Reverse run", "مصروفة": "Paid", "لم تُصرف": "Not paid", "تسجيل صرف رواتب الشهر": "Run this month's payroll", "حارس": "Guard", "عامل نظافة": "Cleaner", "فني": "Technician", "كهربائي": "Electrician", "سباك": "Plumber", "مشرف": "Supervisor", "التزام تشغيلي متكرر": "Recurring operating commitment", "تعديل بيانات العامل": "Edit Employee", "حسابك": "Your Account", "الصلاحيات": "Permissions", "استيراد جماعي": "Bulk Import", "تصدير ونسخ احتياطي": "Export & Backup", "سجل التدقيق": "Audit Log", "استيراد": "Import", "الاسم": "Name", "مدير النظام": "System Admin", "مشغّل": "Operator", "محاسب": "Accountant", "صاحب الشركة": "Company Owner", "مدير تنفيذي": "Executive", "مالك خارجي": "External Owner", "بلا صلاحية": "No access", "لا توجد صلاحية لهذا الحساب": "This account has no access", "تواصل مع مدير النظام لإسناد دور لحسابك.": "Contact the system admin to assign a role to your account.", "المباني المسموح له بالاطلاع عليها": "Buildings this user may view"};
@@ -337,8 +340,9 @@ const langToggle = () => `<div class="inline-flex bg-white border border-paper-2
 
 /* مُبلِّغ الأخطاء: يعرض أي خلل على الشاشة مباشرة بدل بقائه مخفيًا في الكونسول */
 function showError(msg){
+  /* getElementById يعيد عنصرًا صوريًا truthy لا null عند غياب الهدف، فـ !b وحده لا يكشف الغياب */
   let b=document.getElementById('errbar');
-  if(!b){ b=document.createElement('div'); b.id='errbar';
+  if(!b || b.dataset.ghost){ b=document.createElement('div'); b.id='errbar';
     b.style.cssText='position:fixed;bottom:0;right:0;left:0;z-index:99;background:#A93838;color:#fff;padding:.7rem 1rem;font-size:.85rem;direction:rtl;display:flex;justify-content:space-between;gap:1rem;align-items:flex-start';
     document.body.appendChild(b); }
   b.innerHTML='<span style="flex:1">'+msg+'</span><button onclick="this.parentNode.remove()" style="font-weight:700">إغلاق</button>';
@@ -470,7 +474,7 @@ function paint(){
 }
 
 async function runDiag(){
-  const box=document.getElementById('diag');
+  const box=document.getElementById('diag'); if(box.dataset.ghost) return;
   box.innerHTML='<p class="text-ink-500">جارٍ الفحص…</p>';
   const {data,error}=await db.rpc('whoami');
   if(error){ box.innerHTML=`<p class="text-rose-600">تعذّر الفحص: ${error.message}<br>الأرجح أن دوال الحماية لم تُنشأ بعد.</p>`; return; }
@@ -619,7 +623,7 @@ const isSettled = p => restOf(p) <= 1;                 // مسدّدة (بهام
 
 /* ───── لوحة المالك: فصل الذمم بين ما نملكه وما نديره للغير ───── */
 async function dashView(){
-  const m=document.getElementById('main');
+  const m=document.getElementById('main'); if(m.dataset.ghost) return;
   m.innerHTML=`<p class="text-ink-500">جارٍ التحميل…</p>`;
   await Promise.all([load.units(),load.leases(),load.payments(),load.expenses(),load.buildings()]);
 
@@ -811,7 +815,7 @@ function openStatement(name){
       <div class="space-y-1.5 max-h-52 overflow-y-auto">${items.map(x=>`
         <div class="flex justify-between gap-3 text-sm border-b border-paper-100 pb-1.5">
           <span class="min-w-0"><span class="font-medium">${EXP_LABEL[x.category]||x.category}</span>
-            <span class="text-ink-500">${x.notes?' · '+x.notes:''}</span></span>
+            <span class="text-ink-500">${x.notes?' · '+esc(x.notes):''}</span></span>
           <span class="shrink-0 text-ink-500"><span class="num">${x.expense_date}</span> · <span class="num">${money(x.amount)}</span></span>
         </div>`).join('')}</div>`:''}
 
@@ -944,7 +948,7 @@ function openPayout(name){
       return list.length?`<p class="eyebrow mt-6 mb-2">سجل التحويلات</p>
       <div class="space-y-1.5 max-h-44 overflow-y-auto">${list.map(p=>`
         <div class="flex justify-between gap-3 text-sm border-b border-paper-100 pb-1.5">
-          <span class="text-ink-500"><span class="num">${p.payout_date}</span>${p.reference?' · '+p.reference:''}</span>
+          <span class="text-ink-500"><span class="num">${p.payout_date}</span>${p.reference?' · '+esc(p.reference):''}</span>
           <span class="shrink-0 font-semibold"><span class="num">${money(p.amount)}</span>
             <button onclick="delPayout('${p.id}')" class="text-rose-600 mr-2" ${canMoney()?'':'style="display:none"'}>✕</button></span>
         </div>`).join('')}</div>`:'';})()}
@@ -1080,7 +1084,7 @@ function renderAudit(){
 }
 
 async function runReprocess(){
-  const box=document.getElementById('audit_log');
+  const box=document.getElementById('audit_log'); if(box.dataset.ghost) return;
   const live = leases.filter(l=>l.status==='active'||l.status==='renewed'||l.status==='draft');
   const bad  = live.map(auditLease).filter(r=>!r.ok);
   if(!bad.length) return;
@@ -1102,7 +1106,7 @@ async function runReprocess(){
 
 /* ───── المباني: تعريف الملكية وفصل الذمم ───── */
 async function buildingsView(){
-  const m=document.getElementById('main');
+  const m=document.getElementById('main'); if(m.dataset.ghost) return;
   m.innerHTML=`<p class="text-ink-500">جارٍ التحميل…</p>`;
   await Promise.all([load.units(),load.payments(),load.expenses(),load.buildings(),load.payouts()]);
 
@@ -1141,7 +1145,7 @@ function toggleOwnerFields(){
 }
 
 function renderBuildings(){
-  const box=document.getElementById('bdlist');
+  const box=document.getElementById('bdlist'); if(box.dataset.ghost) return;
   if(!buildings.length){ box.innerHTML=empty('لا مباني بعد. سجّل مبنى، ثم أضف وحداته من قسم الوحدات.'); return; }
   box.innerHTML=buildings.map(b=>{
     const r=bookFor(b.name), managed=b.ownership==='managed';
@@ -1234,7 +1238,7 @@ async function saveBuildingEdit(id){
 
 /* ───── المالية ───── */
 async function financeView(){
-  const m=document.getElementById('main');
+  const m=document.getElementById('main'); if(m.dataset.ghost) return;
   m.innerHTML=`<div class="mb-7 flex flex-wrap items-end justify-between gap-3">
     <div><h1 class="text-2xl font-bold">المالية</h1><p class="text-ink-500 mt-1">الإيرادات والمصروفات شهريًا لسنة <span class="num">${YR}</span></p></div>
     ${periodPicker()}
@@ -1257,7 +1261,7 @@ async function financeView(){
       <summary class="font-semibold cursor-pointer">تسجيل مصروف</summary>
       <div class="grid sm:grid-cols-2 gap-3 mt-4">
         <div><label class="eyebrow block mb-2">المبنى</label>
-          <select id="e_b" class="field"><option value="">عام (غير مخصص)</option>${bl.map(b=>`<option>${b}</option>`).join('')}</select></div>
+          <select id="e_b" class="field"><option value="">عام (غير مخصص)</option>${bl.map(b=>`<option>${esc(b)}</option>`).join('')}</select></div>
         <div><label class="eyebrow block mb-2">البند</label>
           <select id="e_c" class="field">
             <option value="salaries">رواتب</option><option value="maintenance">صيانة</option>
@@ -1304,7 +1308,7 @@ async function financeView(){
 }
 const EXP_LABEL={salaries:'رواتب',maintenance:'صيانة',utilities:'كهرباء ومياه',cleaning:'نظافة',government:'رسوم حكومية',other:'أخرى'};
 function renderExpenses(){
-  const box=document.getElementById('elist');
+  const box=document.getElementById('elist'); if(box.dataset.ghost) return;
   if(!expenses.length){ box.innerHTML=empty('لا مصروفات مسجّلة بعد.'); return; }
   box.innerHTML=expenses.slice(0,25).map(e=>`
     <div class="card p-4 flex items-center justify-between gap-3">
@@ -1341,7 +1345,7 @@ async function addExpense(){
 /* ───── التحصيل ───── */
 let payFilter='due';
 async function collectionView(){
-  const m=document.getElementById('main');
+  const m=document.getElementById('main'); if(m.dataset.ghost) return;
   m.innerHTML=`<div class="mb-6 flex flex-wrap items-end justify-between gap-3">
     <div><h1 class="text-2xl font-bold">التحصيل</h1><p class="text-ink-500 mt-1">${periodLabel()} · دفعات الإيجار المستحقة والمسددة</p></div>
     ${periodPicker()}
@@ -1487,7 +1491,7 @@ function runQuick(){
   const txt=el.value;
   if(!txt.trim()) return;
   QP=parseNote(txt);
-  const box=document.getElementById('q_preview');
+  const box=document.getElementById('q_preview'); if(box.dataset.ghost) return;
   const missing=[];
   if(!QP.building) missing.push('المبنى');
   if(!QP.amount)   missing.push('المبلغ');
@@ -1529,8 +1533,8 @@ function quickUnits(){
 }
 
 function clearQuick(){ QP=null;
-  const p=document.getElementById('q_preview'); if(p) p.innerHTML='';
-  const t=document.getElementById('q_text');    if(t) t.value=''; }
+  const p=document.getElementById('q_preview'); if(!p.dataset.ghost) p.innerHTML='';
+  const t=document.getElementById('q_text');    if(!t.dataset.ghost) t.value=''; }
 
 async function saveQuick(){
   const building_name=document.getElementById('q_b').value,
@@ -1554,7 +1558,7 @@ const MAINT_ST={open:'مطلوبة',doing:'قيد التنفيذ',done:'منجز
 const MAINT_ST_C={open:'bg-rose-100 text-rose-600',doing:'bg-amber-100 text-amber-600',done:'bg-teal-100 text-teal-700'};
 
 async function maintView(){
-  const m=document.getElementById('main');
+  const m=document.getElementById('main'); if(m.dataset.ghost) return;
   m.innerHTML=`<p class="text-ink-500">جارٍ التحميل…</p>`;
   await Promise.all([load.units(),load.maint(),load.buildings(),load.expenses()]);
   const bl=buildings.map(b=>b.name);
@@ -1584,7 +1588,7 @@ async function maintView(){
         <p class="text-2xl font-bold display mt-2 ${openN?'text-rose-600':'text-teal-700'}"><span class="num">${openN}</span></p>
         <p class="text-xs text-ink-500 mt-1.5">${openN?'بحاجة متابعة':'لا شيء معلّق'}</p></div>
       <div class="card p-5"><p class="eyebrow">الأعلى تكلفة</p>
-        <p class="text-lg font-bold display mt-2">${Object.keys(byB).length?Object.entries(byB).sort((a,b)=>b[1]-a[1])[0][0]:'—'}</p>
+        <p class="text-lg font-bold display mt-2">${Object.keys(byB).length?esc(Object.entries(byB).sort((a,b)=>b[1]-a[1])[0][0]):'—'}</p>
         <p class="text-xs text-ink-500 mt-1.5">${Object.keys(byB).length?`<span class="num">${money(Object.entries(byB).sort((a,b)=>b[1]-a[1])[0][1])}</span> ر.س`:'لا مصروفات'}</p></div>
     </div>
     <details class="card p-5 mb-6">
@@ -1592,7 +1596,7 @@ async function maintView(){
       <div class="grid sm:grid-cols-2 gap-3 mt-4">
         <div><label class="eyebrow block mb-2">المبنى</label>
           <select id="mt_b" class="field" onchange="fillMaintUnits()">
-            <option value="">اختر المبنى</option>${bl.map(b=>`<option>${b}</option>`).join('')}
+            <option value="">اختر المبنى</option>${bl.map(b=>`<option>${esc(b)}</option>`).join('')}
           </select></div>
         <div><label class="eyebrow block mb-2">البند</label>
           <select id="mt_c" class="field">${Object.entries(MAINT_CATS).map(([k,v])=>`<option value="${k}">${v}</option>`).join('')}</select></div>
@@ -1624,7 +1628,7 @@ async function maintView(){
 
 function fillMaintUnits(){
   const b=document.getElementById('mt_b').value;
-  const box=document.getElementById('mt_units');
+  const box=document.getElementById('mt_units'); if(box.dataset.ghost) return;
   const list=units.filter(u=>u.building_name===b);
   box.innerHTML = !b ? `<p class="text-sm text-ink-300 col-span-3">اختر المبنى أولاً</p>`
     : list.length ? list.map(u=>`
@@ -1640,7 +1644,7 @@ function toggleScope(){
   splitPreview();
 }
 function splitPreview(){
-  const box=document.getElementById('mt_split'); if(!box) return;
+  const box=document.getElementById('mt_split'); if(box.dataset.ghost) return;
   const cost=Number(document.getElementById('mt_cost').value);
   const perUnit=document.querySelector('input[name=scope]:checked').value==='units';
   const n=document.querySelectorAll('.mt_u:checked').length;
@@ -1685,7 +1689,7 @@ async function addMaint(){
 }
 
 function renderMaint(){
-  const box=document.getElementById('mtlist');
+  const box=document.getElementById('mtlist'); if(box.dataset.ghost) return;
   if(!maint.length){ box.innerHTML=empty('لا أعمال صيانة مسجّلة بعد.'); return; }
   box.innerHTML=maint.map(x=>{
     const nums=(x.unit_ids||[]).map(id=>units.find(u=>u.id===id)?.unit_number).filter(Boolean);
@@ -1716,7 +1720,7 @@ function renderMaint(){
           <div class="mt-3 pt-3 border-t border-paper-100">
             <p class="eyebrow mb-1.5">حركات التكلفة</p>
             ${x.adjustments.map((a,i)=>`<div class="flex justify-between gap-3 text-xs py-1 border-b border-paper-100 last:border-0">
-              <span class="text-ink-500">${a.note||'تعديل'} · <span class="num">${a.date||''}</span></span>
+              <span class="text-ink-500">${esc(a.note||'تعديل')} · <span class="num">${esc(a.date||'')}</span></span>
               <span class="shrink-0 ${Number(a.amount)>0?'text-rose-600':'text-teal-700'} font-semibold">
                 ${Number(a.amount)>0?'+':'−'}<span class="num">${money(Math.abs(a.amount))}</span>
                 <button onclick="removeAdj('${x.id}',${i})" class="text-ink-300 mr-1">✕</button></span>
@@ -1874,7 +1878,7 @@ async function deleteMaint(id){
 const ROLES={guard:'حارس',cleaner:'عامل نظافة',technician:'فني',electrician:'كهربائي',plumber:'سباك',supervisor:'مشرف',other:'أخرى'};
 
 async function staffView(){
-  const m=document.getElementById('main');
+  const m=document.getElementById('main'); if(m.dataset.ghost) return;
   m.innerHTML=head('العمال والرواتب','بيانات العاملين ورواتبهم الشهرية');
   await Promise.all([load.units(),load.staff(),load.expenses()]);
   const bl=[...new Set(units.map(u=>u.building_name))];
@@ -1906,7 +1910,7 @@ async function staffView(){
           <select id="s_r" class="field">${Object.entries(ROLES).map(([k,v])=>`<option value="${k}">${v}</option>`).join('')}</select></div>
         <div><label class="eyebrow block mb-2">الراتب الشهري (ر.س)</label><input id="s_s" type="number" class="field"></div>
         <div><label class="eyebrow block mb-2">المبنى</label>
-          <select id="s_b" class="field"><option value="">غير مخصص</option>${bl.map(b=>`<option>${b}</option>`).join('')}</select></div>
+          <select id="s_b" class="field"><option value="">غير مخصص</option>${bl.map(b=>`<option>${esc(b)}</option>`).join('')}</select></div>
         <div><label class="eyebrow block mb-2">رقم الجوال</label><input id="s_p" class="field" dir="ltr"></div>
         <div><label class="eyebrow block mb-2">تاريخ المباشرة</label><input id="s_h" type="date" class="field"></div>
       </div>
@@ -1949,7 +1953,7 @@ async function cancelPayroll(period){
 }
 
 function renderStaff(){
-  const box=document.getElementById('slist');
+  const box=document.getElementById('slist'); if(box.dataset.ghost) return;
   if(!staff.length){ box.innerHTML=empty('لا عمال مسجّلون بعد.'); return; }
   box.innerHTML=staff.map(s=>`
     <div class="card p-4 flex items-center justify-between gap-3">
@@ -1999,7 +2003,7 @@ function openStaffEdit(id){
         <select id="se_r" class="field">${Object.entries(ROLES).map(([k,v])=>`<option value="${k}" ${s.role===k?'selected':''}>${v}</option>`).join('')}</select></div>
       <div><label class="eyebrow block mb-2">الراتب الشهري (ر.س)</label><input id="se_s" type="number" class="field" value="${s.monthly_salary??''}"></div>
       <div><label class="eyebrow block mb-2">المبنى</label>
-        <select id="se_b" class="field"><option value="">غير مخصص</option>${bl.map(b=>`<option ${s.building_name===b?'selected':''}>${b}</option>`).join('')}</select></div>
+        <select id="se_b" class="field"><option value="">غير مخصص</option>${bl.map(b=>`<option ${s.building_name===b?'selected':''}>${esc(b)}</option>`).join('')}</select></div>
       <div><label class="eyebrow block mb-2">رقم الجوال</label><input id="se_p" class="field" dir="ltr" value="${esc(s.phone||'')}"></div>
       <div><label class="eyebrow block mb-2">تاريخ المباشرة</label><input id="se_h" type="date" class="field" value="${s.hire_date||''}"></div>
       <div><label class="eyebrow block mb-2">الحالة</label>
@@ -2053,7 +2057,7 @@ async function runPayroll(){
 
 /* ───── العقود ───── */
 async function leasesView(){
-  const m=document.getElementById('main');
+  const m=document.getElementById('main'); if(m.dataset.ghost) return;
   m.innerHTML=head('العقود','عقود الإيجار السارية وسجل العقود المنتهية');
   await Promise.all([load.tenants(),load.units(),load.leases(),load.payments()]);
   const vac=units.filter(u=>u.status==='vacant');
@@ -2095,7 +2099,7 @@ async function leasesView(){
   });
 }
 function renderLeases(){
-  const box=document.getElementById('llist');
+  const box=document.getElementById('llist'); if(box.dataset.ghost) return;
   if(!leases.length){ box.innerHTML=empty('لا عقود بعد.'); return; }
   const L={draft:'مسودة',active:'ساري',renewed:'مجدد',terminated:'منتهي',expired:'منتهي الصلاحية'};
   const C={active:'bg-teal-100 text-teal-700',draft:'bg-paper-100 text-ink-500',terminated:'bg-rose-100 text-rose-600',expired:'bg-amber-100 text-amber-600',renewed:'bg-teal-100 text-teal-700'};
@@ -2119,7 +2123,7 @@ function renderLeases(){
     </div></div>`).join('');
 }
 function previewPlan(){
-  const box=document.getElementById('l_plan'); if(!box) return;
+  const box=document.getElementById('l_plan'); if(box.dataset.ghost) return;
   const annual=Number(l_rent.value), n=Number(l_count.value);
   if(!(annual>0)){ box.textContent=''; return; }
   const rows=(l_start.value&&l_end.value)?buildSchedule('x',l_start.value,l_end.value,annual,n):[];
@@ -2358,7 +2362,7 @@ async function deleteLease(id){
 
 /* ───── الوحدات + العدادات ───── */
 async function unitsView(){
-  const m=document.getElementById('main');
+  const m=document.getElementById('main'); if(m.dataset.ghost) return;
   m.innerHTML=head('الوحدات','الوحدات وأرقام عدادات الكهرباء والمياه');
   await Promise.all([load.units(),load.readings(),load.expenses(),load.leases()]);
   const occ=units.filter(u=>u.status==='occupied').length, rate=units.length?Math.round(occ/units.length*100):0;
@@ -2394,7 +2398,7 @@ async function unitsView(){
   renderUnits();
 }
 function renderUnits(){
-  const box=document.getElementById('ulist');
+  const box=document.getElementById('ulist'); if(box.dataset.ghost) return;
   if(!units.length){ box.innerHTML=empty('لا وحدات بعد. أضف أول وحدة لتبدأ.'); return; }
   const L={vacant:'شاغرة',occupied:'مؤجّرة',maintenance:'صيانة'};
   const C={vacant:'bg-paper-100 text-ink-500',occupied:'bg-teal-100 text-teal-700',maintenance:'bg-amber-100 text-amber-600'};
@@ -2556,7 +2560,7 @@ async function saveReading(unit_id){
 let appUsers=[], auditRows=[];
 
 async function settingsView(){
-  const m=document.getElementById('main');
+  const m=document.getElementById('main'); if(m.dataset.ghost) return;
   m.innerHTML=head('الإعدادات','الصلاحيات وإدارة البيانات');
   appUsers=(await db.from('app_users').select('*').order('email')).data||[];
   auditRows=(await db.from('audit_log').select('*').order('created_at',{ascending:false}).limit(40)).data||[];
@@ -2593,7 +2597,7 @@ async function settingsView(){
         ${appUsers.map(u=>`<div class="flex items-center justify-between gap-3 border border-paper-100 rounded-lg p-3">
           <div class="min-w-0"><p class="font-semibold truncate">${esc(u.full_name||u.email)}</p>
             <p class="text-xs text-ink-500 num truncate">${esc(u.email)}</p>
-            ${u.role==='landlord'?`<p class="text-xs text-amber-600 truncate">${(u.buildings||[]).length?'مباني: '+(u.buildings||[]).join('، '):'لم تُحدَّد مبانيه — لن يرى شيئًا'}</p>`:''}</div>
+            ${u.role==='landlord'?`<p class="text-xs text-amber-600 truncate">${(u.buildings||[]).length?'مباني: '+esc((u.buildings||[]).join('، ')):'لم تُحدَّد مبانيه — لن يرى شيئًا'}</p>`:''}</div>
           <div class="flex items-center gap-2 shrink-0">
             <select onchange="setRole('${u.id}',this.value)" class="field w-auto py-1 text-sm" ${u.email.toLowerCase()===String(user.email).toLowerCase()?'disabled title="لا يمكنك تغيير دور حسابك"':''}>
               ${Object.entries(ROLE_LABEL).filter(([k])=>k!=='none').map(([k,v])=>`<option value="${k}" ${u.role===k?'selected':''}>${v}</option>`).join('')}
@@ -2728,7 +2732,7 @@ async function delAppUser(id){
 /* ───── المستأجرون ───── */
 let tq='';
 async function tenantsView(){
-  const m=document.getElementById('main');
+  const m=document.getElementById('main'); if(m.dataset.ghost) return;
   m.innerHTML=head('المستأجرون','سجل المستأجرين وحالاتهم')+`
   <div class="fade">
     <details class="card p-5 mb-6">
@@ -2750,7 +2754,7 @@ async function tenantsView(){
 let tTimer;
 function searchTenants(v){ tq=v; clearTimeout(tTimer); tTimer=setTimeout(async()=>{ await load.tenants(tq); renderTenants(); },350); }
 function renderTenants(){
-  const box=document.getElementById('tlist');
+  const box=document.getElementById('tlist'); if(box.dataset.ghost) return;
   if(!tenants.length){ box.innerHTML=empty(tq?'لا نتائج مطابقة.':'لا مستأجرون بعد.'); return; }
   const L={active:'نشط',inactive:'غير نشط',blacklisted:'قائمة سوداء'};
   const C={active:'bg-teal-100 text-teal-700',inactive:'bg-paper-100 text-ink-500',blacklisted:'bg-rose-100 text-rose-600'};
