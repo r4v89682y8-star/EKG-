@@ -144,7 +144,7 @@ details[open] summary::before{ content:'−'; transform:rotate(180deg); }
   const SUPABASE_KEY = "sb_publishable_26WQJ1wSFyt3eNDdkj2yyw_RwYDK6yf";
   const BRAND = "أصول";              // ← اسم النظام، غيّره من هنا
   const BRAND_SUB = "إدارة وتشغيل وصيانة الأصول العقارية";
-  const VERSION = "v34";                // للتأكد من أن النسخة المنشورة محدّثة
+  const VERSION = "v35";                // للتأكد من أن النسخة المنشورة محدّثة
 </script>
 
 <div id="app"></div>
@@ -2135,8 +2135,11 @@ let savingLease=false;
 async function addLease(){
   if(savingLease) return;
   const btn=document.activeElement;
+  /* كل حقول النموذج تُقرأ هنا قبل أي await: لو انتقل المستخدم لتبويب آخر أثناء الحفظ
+     يُعاد بناء الصفحة وتختفي حقول هذا النموذج، فتصبح قراءتها لاحقًا عنصرًا صوريًا بلا value */
   const tenant_id=l_tenant.value,unit_id=l_unit.value,start_date=l_start.value,end_date=l_end.value,
-        annual=Number(l_rent.value),count=Number(l_count.value),err=document.getElementById('l_err');
+        annual=Number(l_rent.value),count=Number(l_count.value),err=document.getElementById('l_err'),
+        ejar_number=l_ejar.value.trim()||null,deposit_amount=Number(l_dep.value||0),late_fee_pct=Number(l_late.value||0);
   err.classList.add('hidden');
   const fail=m=>{err.textContent=m;err.classList.remove('hidden');};
   if(!tenant_id||!unit_id||!start_date||!end_date||!annual) return fail('أكمل كل الحقول قبل الحفظ.');
@@ -2154,9 +2157,7 @@ async function addLease(){
     const {data,error}=await db.from('leases').insert({
       tenant_id,unit_id,start_date,end_date,status:'active',
       annual_rent:annual, installments:count, monthly_rent:Math.round(annual/12),
-      ejar_number:document.getElementById('l_ejar').value.trim()||null,
-      deposit_amount:Number(document.getElementById('l_dep').value||0),
-      late_fee_pct:Number(document.getElementById('l_late').value||0),
+      ejar_number, deposit_amount, late_fee_pct,
       vat_pct
     }).select().single();
     if(error) return fail('تعذّر حفظ العقد: '+error.message);
