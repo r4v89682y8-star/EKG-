@@ -144,7 +144,7 @@ details[open] summary::before{ content:'−'; transform:rotate(180deg); }
   const SUPABASE_KEY = "sb_publishable_26WQJ1wSFyt3eNDdkj2yyw_RwYDK6yf";
   const BRAND = "أصول";              // ← اسم النظام، غيّره من هنا
   const BRAND_SUB = "إدارة وتشغيل وصيانة الأصول العقارية";
-  const VERSION = "v35";                // للتأكد من أن النسخة المنشورة محدّثة
+  const VERSION = "v36";                // للتأكد من أن النسخة المنشورة محدّثة
 </script>
 
 <div id="app"></div>
@@ -2362,6 +2362,7 @@ async function deleteLease(id){
 }
 
 /* ───── الوحدات + العدادات ───── */
+let uq='';
 async function unitsView(){
   const m=document.getElementById('main'); if(m.dataset.ghost) return;
   m.innerHTML=head('الوحدات','الوحدات وأرقام عدادات الكهرباء والمياه');
@@ -2369,6 +2370,7 @@ async function unitsView(){
   const occ=units.filter(u=>u.status==='occupied').length, rate=units.length?Math.round(occ/units.length*100):0;
   m.innerHTML+=`
   <div class="fade">
+    <input id="u_q" class="field mb-4" placeholder="ابحث بالاسم أو رقم الوحدة" oninput="searchUnits(this.value)">
     ${units.length?`<div class="card p-5 mb-6">
       <div class="flex items-end justify-between mb-3">
         <div><p class="eyebrow">نسبة الإشغال</p><p class="text-3xl font-bold display mt-1"><span class="num">${rate}</span>%</p></div>
@@ -2394,19 +2396,17 @@ async function unitsView(){
       <p id="u_err" class="text-rose-600 text-sm mt-3 hidden"></p>
       <button onclick="addUnit()" class="btn-primary mt-4">إضافة الوحدة</button>
     </details>
-    <div id="ulist" class="space-y-2.5"></div>
+    <div id="ulist" class="space-y-4"></div>
   </div>`;
   renderUnits();
 }
-function renderUnits(){
-  const box=document.getElementById('ulist'); if(box.dataset.ghost) return;
-  if(!units.length){ box.innerHTML=empty('لا وحدات بعد. أضف أول وحدة لتبدأ.'); return; }
+function searchUnits(v){ uq=v; renderUnits(); }
+const unitCard=u=>{
   const L={vacant:'شاغرة',occupied:'مؤجّرة',maintenance:'صيانة'};
   const C={vacant:'bg-paper-100 text-ink-500',occupied:'bg-teal-100 text-teal-700',maintenance:'bg-amber-100 text-amber-600'};
-  box.innerHTML=units.map(u=>{
-    const last=t=>readings.find(r=>r.unit_id===u.id&&r.meter_type===t);
-    const e=last('electricity'), w=last('water');
-    return `<div class="card p-4">
+  const last=t=>readings.find(r=>r.unit_id===u.id&&r.meter_type===t);
+  const e=last('electricity'), w=last('water');
+  return `<div class="card p-4">
       <div class="flex items-start justify-between gap-3">
         <div class="min-w-0">
           <p class="font-semibold">${esc(u.building_name)} — وحدة ${esc(u.unit_number)}</p>
@@ -2427,7 +2427,42 @@ function renderUnits(){
         <button onclick="openReading('${u.id}')" class="btn-ghost text-teal-700 border-teal-100">تسجيل قراءة عداد</button>
         <button onclick="openUnitEdit('${u.id}')" class="btn-ghost">تعديل بيانات الوحدة</button>
       </div>
-    </div>`;}).join('');
+    </div>`;
+};
+function renderUnits(){
+  const box=document.getElementById('ulist'); if(box.dataset.ghost) return;
+  if(!units.length){ box.innerHTML=empty('لا وحدات بعد. أضف أول وحدة لتبدأ.'); return; }
+  const rank={maintenance:0,vacant:1,occupied:2};
+  const UNCLASSIFIED='غير مصنّفة';
+  const q=(uq||'').trim().toLowerCase();
+  const groups=new Map();
+  units.forEach(u=>{
+    const key=u.building_name||UNCLASSIFIED;
+    if(!groups.has(key)) groups.set(key,[]);
+    groups.get(key).push(u);
+  });
+  const names=[...groups.keys()].sort((a,b)=>{
+    if(a===UNCLASSIFIED) return 1;
+    if(b===UNCLASSIFIED) return -1;
+    return a.localeCompare(b);
+  });
+  const html=names.map(name=>{
+    const list=groups.get(name).slice().sort((a,b)=>(rank[a.status]??3)-(rank[b.status]??3)
+      || String(a.unit_number).localeCompare(String(b.unit_number),undefined,{numeric:true}));
+    const nameMatches=q&&name.toLowerCase().includes(q);
+    const shown=q&&!nameMatches?list.filter(u=>String(u.unit_number||'').toLowerCase().includes(q)):list;
+    if(q&&!shown.length) return '';
+    const occ=list.filter(u=>u.status==='occupied').length, rate=list.length?Math.round(occ/list.length*100):0;
+    return `<details open class="card p-5">
+      <summary class="flex flex-wrap items-center justify-between gap-3">
+        <span class="font-bold text-lg">${esc(name)}</span>
+        <span class="text-sm text-ink-500"><span class="num">${list.length}</span> وحدة · <span class="num">${occ}</span>/<span class="num">${list.length}</span> مؤجّرة (<span class="num">${rate}</span>%)</span>
+      </summary>
+      <div class="lattice mt-3">${list.map(u=>`<span title="${esc(u.unit_number)}" class="h-5 flex-1 min-w-[12px] rounded ${u.status==='occupied'?'bg-teal-700':'bg-paper-200'}"></span>`).join('')}</div>
+      <div class="space-y-2.5 mt-4">${shown.map(unitCard).join('')}</div>
+    </details>`;
+  }).filter(Boolean).join('');
+  box.innerHTML = html || empty('لا نتائج مطابقة.');
 }
 const meterCell=(label,num,last)=>`
   <div>
